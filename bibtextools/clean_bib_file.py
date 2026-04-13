@@ -130,11 +130,11 @@ def remove_duplicate_entries(entries, force=False, verbose=logging.WARN):
             logger.warning("Entry 2:")
             pprint(_pair[1])
             _idx_entry_delete = input("Which entry do you want to REMOVE? Type 1 or 2 and hit enter. Simply hitting enter will remove the shorter entry. Type 0 for not deleting any entry.\n")
-            if int(_idx_entry_delete) == 0:
-                continue
             try:
-                _idx_entry_delete = int(_idx_entry_delete) - 1
-                entries.remove(_pair[_idx_entry_delete])
+                _idx_entry_delete = int(_idx_entry_delete)
+                if _idx_entry_delete == 0:
+                    continue
+                entries.remove(_pair[_idx_entry_delete - 1])
             except ValueError:
                 entries.remove(_shorter_entry)
         logger.info("Successfully removed duplicate entry.")

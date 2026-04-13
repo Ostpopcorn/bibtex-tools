@@ -72,3 +72,16 @@ def test_remove_duplicate_entries_number_forced():
     _entry = next(x for x in results if x[KEY_ID] == "Part2")
     assert ((len(bib_database.get_entry_list()) == 9) and
             (len(results) == 7) and len(_entry) == 11)
+
+def test_remove_duplicate_entries_interactive_empty_input(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "")
+    bib_database = clean_bib_file.load_bib_file(DUPLICATE_CONTENT)
+    results = clean_bib_file.remove_duplicate_entries(bib_database)
+    _entry = next(x for x in results if x[KEY_ID] == "Part2")
+    assert len(results) == 7 and len(_entry) == 11
+
+def test_remove_duplicate_entries_interactive_skip(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "0")
+    bib_database = clean_bib_file.load_bib_file(DUPLICATE_CONTENT)
+    results = clean_bib_file.remove_duplicate_entries(bib_database)
+    assert len(results) == len(bib_database.get_entry_list()) == 9
