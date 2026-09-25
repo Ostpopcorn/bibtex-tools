@@ -17,7 +17,12 @@ async function init() {
     if (!response.ok) throw new Error(`Could not download ${wheel} (${response.status})`);
     pyodide.unpackArchive(await response.arrayBuffer(), "wheel", { extractDir: sitePackages });
   }));
-  pyodide.runPython("import importlib; importlib.invalidate_caches()");
+  // The web app shows the warnings of bibtextools, so they are not printed
+  pyodide.runPython(`
+import importlib, logging
+importlib.invalidate_caches()
+logging.getLogger().addHandler(logging.NullHandler())
+`);
   bridge = pyodide.pyimport("bibtextools.web");
   postMessage({ type: "ready", defaults: JSON.parse(bridge.defaults()), version: manifest.version });
 }

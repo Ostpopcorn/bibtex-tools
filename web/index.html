@@ -66,12 +66,15 @@
         </div>
       </header>
       <div class="card-body">
-        <div class="file-field">
-          <button class="btn small" data-pick="bbl">Choose .bbl</button>
-          <span class="file-name" id="bbl-name">No file</span>
-          <button class="btn ghost tiny icon-btn" data-clear="bbl" hidden aria-label="Remove .bbl file">×</button>
+        <div class="file-actions">
+          <button class="btn small" data-pick="bbl" title="Upload the .bbl file of your document"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>
+          <button class="btn small" data-paste="bbl" title="Paste the content of a .bbl file"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste</button>
         </div>
-        <p class="hint" id="bbl-info">Compile your document, then pick its <code>.bbl</code> file.</p>
+        <div class="file-field" id="bbl-field" hidden>
+          <span class="file-name" id="bbl-name"></span>
+          <button class="btn ghost tiny icon-btn" data-clear="bbl" aria-label="Remove the .bbl file">×</button>
+        </div>
+        <p class="hint" id="bbl-info">Compile your document, then upload or paste its <code>.bbl</code> file.</p>
       </div>
     </article>
 
@@ -86,11 +89,15 @@
         </div>
       </header>
       <div class="card-body">
-        <div class="file-field">
-          <button class="btn small" data-pick="abbr">Abbreviations…</button>
-          <span class="file-name" id="abbr-name">None</span>
-          <button class="btn ghost tiny icon-btn" data-clear="abbr" hidden aria-label="Remove abbreviation file">×</button>
+        <div class="file-actions">
+          <button class="btn small" data-pick="abbr" title="Upload a bib file with @string abbreviations, e.g., IEEEabbr.bib"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>
+          <button class="btn small" data-paste="abbr" title="Paste @string abbreviations"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste</button>
         </div>
+        <div class="file-field" id="abbr-field" hidden>
+          <span class="file-name" id="abbr-name"></span>
+          <button class="btn ghost tiny icon-btn" data-clear="abbr" aria-label="Remove the abbreviations">×</button>
+        </div>
+        <p class="hint" id="abbr-hint">Upload or paste <code>@string</code> abbreviations, e.g., <code>IEEEabbr.bib</code>.</p>
         <label class="check"><input type="checkbox" data-setting="clean.unicode"> <span>Unicode → LaTeX <span class="muted">(ä → {\"a})</span></span></label>
       </div>
     </article>
@@ -243,13 +250,10 @@
   <dialog class="dialog paste-dialog" id="paste-dialog" aria-labelledby="paste-title">
     <header class="dialog-head">
       <h2 id="paste-title">Paste BibTeX</h2>
-      <span class="meta">Paste the content of a bib file, e.g., copied from Google Scholar or your reference manager.</span>
+      <span class="meta" id="paste-help"></span>
       <button class="btn ghost icon-btn" data-dialog-close aria-label="Close">×</button>
     </header>
-    <textarea id="paste-text" spellcheck="false" autocomplete="off" aria-label="BibTeX to add" placeholder="@article{key,
-  author = {…},
-  title = {…},
-}"></textarea>
+    <textarea id="paste-text" spellcheck="false" autocomplete="off" aria-labelledby="paste-title"></textarea>
     <footer class="dialog-foot">
       <span class="hint" id="paste-error"></span>
       <span class="spacer"></span>
