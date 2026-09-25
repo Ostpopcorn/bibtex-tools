@@ -438,7 +438,37 @@ document.addEventListener("click", (event) => {
 /* Paste */
 
 const pasteDialog = $("#paste-dialog");
-const looksLikeBib = (text) => /@\s*\w+\s*[{(]/.test(text);
+const PASTE_KINDS = {
+  bib: {
+    title: "Paste BibTeX",
+    help: "Paste the content of a bib file, e.g., copied from Google Scholar or your reference manager.",
+    placeholder: "@article{key,\n  author = {…},\n  title = {…},\n}",
+    error: "This does not look like BibTeX: no entry like @article{…} found.",
+  },
+  bbl: {
+    title: "Paste a .bbl file",
+    help: "Paste the content of the .bbl file that LaTeX creates next to your document.",
+    placeholder: "\\entry{key}{article}{}\n…\n\nor\n\n\\bibitem{key}\n…",
+    error: "This does not look like a .bbl file: no \\entry{…} or \\bibitem{…} found.",
+  },
+  abbr: {
+    title: "Paste abbreviations",
+    help: "Paste @string definitions, e.g., the content of IEEEabbr.bib.",
+    placeholder: '@string{IEEE_J_COM = "IEEE Trans. Commun."}',
+    error: "No abbreviations found: paste definitions like @string{name = \"…\"}.",
+  },
+};
+let pasteKind = "bib";
+
+// What pasted text is: bib entries, abbreviations (@string only), or a .bbl file
+function pastedKinds(text) {
+  const types = [...text.matchAll(/@\s*(\w+)\s*[{(]/g)].map((match) => match[1].toLowerCase());
+  return {
+    bib: types.some((type) => !["string", "comment", "preamble"].includes(type)),
+    abbr: types.includes("string"),
+    bbl: /\\entry\s*\{|\\bibitem\b/.test(text),
+  };
+}
 
 function pastedName() {
   const names = new Set(state.sources.map((source) => source.name));
@@ -447,16 +477,30 @@ function pastedName() {
   return name;
 }
 
-// Add pasted BibTeX as another bib file. Returns whether it was added.
-function addPasted(text) {
-  if (!looksLikeBib(text)) return false;
-  const name = pastedName();
-  setSources([...state.sources, { name, text }]);
-  toast(`Added the pasted text as ${name}`);
+// Add pasted text as a bib file, a .bbl file, or abbreviations. Returns
+// whether it was added.
+function addPasted(kind, text) {
+  if (!pastedKinds(text)[kind]) return false;
+  if (kind === "bib") {
+    const name = pastedName();
+    setSources([...state.sources, { name, text }]);
+    toast(`Added the pasted text as ${name}`);
+  } else if (kind === "bbl") {
+    setAuxFile("bbl", { name: "pasted.bbl", text });
+    toast("Added the pasted .bbl file to Filter cited");
+  } else {
+    setAuxFile("abbr", { name: "pasted abbreviations", text });
+    toast("Added the pasted abbreviations to Clean");
+  }
   return true;
 }
 
-function openPasteDialog() {
+function openPasteDialog(kind = "bib") {
+  const config = PASTE_KINDS[kind];
+  pasteKind = kind;
+  $("#paste-title").textContent = config.title;
+  $("#paste-help").textContent = config.help;
+  $("#paste-text").placeholder = config.placeholder;
   $("#paste-text").value = "";
   $("#paste-error").textContent = "";
   pasteDialog.showModal();
@@ -464,9 +508,8 @@ function openPasteDialog() {
 }
 
 function addFromDialog() {
-  const text = $("#paste-text").value;
-  if (addPasted(text)) pasteDialog.close();
-  else $("#paste-error").textContent = "This does not look like BibTeX: no entry like @article{…} found.";
+  if (addPasted(pasteKind, $("#paste-text").value)) pasteDialog.close();
+  else $("#paste-error").textContent = PASTE_KINDS[pasteKind].error;
 }
 
 $("#paste-add").addEventListener("click", addFromDialog);
@@ -478,7 +521,8 @@ pasteDialog.addEventListener("click", (event) => {
   if (event.target === pasteDialog || event.target.closest("[data-dialog-close]")) pasteDialog.close();
 });
 document.addEventListener("click", (event) => {
-  if (event.target.closest("[data-paste]")) openPasteDialog();
+  const paste = event.target.closest("[data-paste]");
+  if (paste) openPasteDialog(paste.dataset.paste || "bib");
 });
 
 // Paste anywhere on the page, except into fields and dialogs
@@ -493,7 +537,10 @@ document.addEventListener("paste", async (event) => {
   const text = data.getData("text/plain");
   if (!text.trim()) return;
   event.preventDefault();
-  if (!addPasted(text)) toast("The pasted text does not look like BibTeX");
+  const kinds = pastedKinds(text);
+  const kind = ["bib", "abbr", "bbl"].find((k) => kinds[k]);
+  if (kind) addPasted(kind, text);
+  else toast("The pasted text is not BibTeX, abbreviations (@string), or a .bbl file");
 });
 
 if (/Mac|iPhone|iPad/.test(navigator.platform)) {
@@ -563,21 +610,20 @@ addMenu.addEventListener("keydown", (event) => {
 function renderFilesInfo() {
   for (const kind of ["bbl", "abbr"]) {
     const file = state[kind];
-    const name = $(`#${kind}-name`);
-    name.textContent = file ? file.name : kind === "bbl" ? "No file" : "None";
-    name.classList.toggle("set", Boolean(file));
-    $(`[data-clear=${kind}]`).hidden = !file;
+    $(`#${kind}-field`).hidden = !file;
+    $(`#${kind}-name`).textContent = file ? file.name : "";
+    if (kind === "abbr") $("#abbr-hint").hidden = Boolean(file);
   }
   const info = $("#bbl-info");
   const cited = state.response && state.response.cited;
   info.classList.remove("warn");
   if (!state.bbl) {
-    info.innerHTML = "Compile your document, then pick its <code>.bbl</code> file.";
+    info.innerHTML = "Compile your document, then upload or paste its <code>.bbl</code> file.";
   } else if (!state.settings.filter.enabled) {
     info.textContent = "Turned off.";
   } else if (cited) {
     const missing = cited.missing.length;
-    info.innerHTML = `<strong>${cited.count}</strong> cited · <strong>${cited.kept}</strong> entries kept` +
+    info.innerHTML = `<strong>${cited.count}</strong> cited · <strong>${cited.kept}</strong> ${cited.kept === 1 ? "entry" : "entries"} kept` +
       (missing ? ` · <strong>${missing}</strong> not in your files` : "");
     info.title = `Read from a ${cited.backend} .bbl file`;
     if (missing) {
