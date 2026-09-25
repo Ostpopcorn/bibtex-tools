@@ -5,15 +5,18 @@ which is downloaded from npm and served with the app.
     python web/build.py                 # build into web/dist
     python web/build.py --serve         # build and serve on http://localhost:8000
     python web/build.py --out _site     # build into another folder
+    uv run web/build.py --serve         # the same with uv
 """
 import argparse
 import base64
 import functools
 import hashlib
 import http.server
+import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -63,13 +66,31 @@ def copy_pyodide(out_dir):
                 shutil.copyfileobj(member, _file)
 
 
+def pip_command():
+    """Return the command to run pip with. Virtual environments created by uv
+    do not include pip, in which case uv runs pip."""
+    if importlib.util.find_spec("pip") is not None:
+        return [sys.executable, "-m", "pip"]
+    uv = shutil.which("uv")
+    if uv is not None:
+        return [uv, "tool", "run", "pip"]
+    sys.exit("Building the web app needs pip or uv. Install pip with "
+             "'python -m ensurepip' or install uv.")
+
+
+def get_version():
+    with open(os.path.join(ROOT_DIR, "bibtextools", "__init__.py"),
+              encoding="utf-8") as _file:
+        return re.search(r'__version__ = "(.*?)"', _file.read()).group(1)
+
+
 def build_wheels(out_dir):
     """Build the wheels of bibtextools and its dependencies, which are all
     pure Python, and list them in a manifest."""
     target = os.path.join(out_dir, "wheels")
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run([sys.executable, "-m", "pip", "wheel", "--quiet",
-                        "--wheel-dir", tmp, ROOT_DIR], check=True)
+        subprocess.run(pip_command() + ["wheel", "--quiet", "--wheel-dir",
+                                        tmp, ROOT_DIR], check=True)
         wheels = sorted(k for k in os.listdir(tmp) if k.endswith(".whl"))
         not_pure = [k for k in wheels if not k.endswith("-none-any.whl")]
         if not_pure:
@@ -78,10 +99,8 @@ def build_wheels(out_dir):
         os.makedirs(target)
         for wheel in wheels:
             shutil.copy(os.path.join(tmp, wheel), target)
-    sys.path.insert(0, ROOT_DIR)
-    from bibtextools import __version__
     with open(os.path.join(target, "manifest.json"), "w") as _file:
-        json.dump({"version": __version__, "wheels": wheels}, _file, indent=2)
+        json.dump({"version": get_version(), "wheels": wheels}, _file, indent=2)
     return wheels
 
 
