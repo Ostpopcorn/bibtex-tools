@@ -50,7 +50,8 @@ function makePane(el) {
   const [padTop, content, padBottom] = ["pad", "content", "pad"].map((cls) =>
     Object.assign(document.createElement("div"), { className: cls }));
   el.append(padTop, content, padBottom);
-  return { el, content, padTop, padBottom, top: 0, bottom: 0, entries: [], byOrigin: new Map() };
+  return { el, content, padTop, padBottom, top: 0, bottom: 0, entries: [], byOrigin: new Map(),
+           last: 0, expected: null, link: null };
 }
 
 const panes = {
@@ -311,7 +312,7 @@ $("#pane-preview").addEventListener("change", (event) => {
 
 $("#link-scroll").addEventListener("change", (event) => {
   state.linkScroll = event.target.checked;
-  if (state.linkScroll) syncScroll(panes[state.lastPane], panes[other(state.lastPane)]);
+  if (state.linkScroll) align(panes[state.lastPane], panes[other(state.lastPane)]);
 });
 
 /* Remove fields */
@@ -758,6 +759,7 @@ function renderPreview(unresolved) {
 function indexPane(pane) {
   pane.entries = $$(".entry", pane.el).filter((el) => el.dataset.origin);
   pane.byOrigin = new Map(pane.entries.map((el) => [el.dataset.origin, el]));
+  pane.link = null;
 }
 
 function render() {
@@ -769,8 +771,10 @@ function render() {
   renderPreview(unresolved);
   indexPane(panes.original);
   indexPane(panes.preview);
+  // The new content can change the scroll positions, which are not the user's
+  for (const pane of Object.values(panes)) handled(pane);
   restoreAnchor(panes[state.lastPane], anchor);
-  if (state.linkScroll) syncScroll(panes[state.lastPane], panes[other(state.lastPane)]);
+  if (state.linkScroll) align(panes[state.lastPane], panes[other(state.lastPane)]);
 
   const overlay = $("#overlay");
   const waiting = state.sources.length && (!state.ready || !r);
@@ -890,15 +894,15 @@ function captureAnchor(pane) {
 
 function restoreAnchor(pane, anchor) {
   const el = anchor.origin && pane.byOrigin.get(anchor.origin);
-  pane.el.scrollTop = el ? el.offsetTop + anchor.offset : anchor.offset;
+  setScroll(pane, el ? el.offsetTop + anchor.offset : anchor.offset);
 }
 
 /* Positions without the blank space above the content ("view") */
 
 const contentTop = (pane, el) => el.offsetTop - pane.top;
+const contentEnd = (pane) => pane.el.scrollHeight - pane.top - pane.bottom;
 const view = (pane) => pane.el.scrollTop - pane.top;
-const maxView = (pane) =>
-  Math.max(0, pane.el.scrollHeight - pane.top - pane.bottom - pane.el.clientHeight);
+const maxView = (pane) => Math.max(0, contentEnd(pane) - pane.el.clientHeight);
 const viewOffset = (pane, el) => el.offsetTop - pane.el.scrollTop;
 
 function setPad(pane, top, bottom) {
@@ -920,6 +924,20 @@ function setView(pane, position) {
   setScroll(pane, position + pane.top);
 }
 
+// Scroll a pane from the code. Its scroll event is recognized by the position,
+// however late the browser sends it, so that it is not taken for the user's.
+function setScroll(pane, top) {
+  if (Math.abs(pane.el.scrollTop - top) >= 1) pane.el.scrollTop = top;
+  handled(pane);
+}
+
+// The current position of a pane needs no scrolling of the other pane, e.g.,
+// because the panes were just aligned
+function handled(pane) {
+  pane.expected = pane.el.scrollTop;
+  pane.last = view(pane);
+}
+
 // Remove the blank space when it is scrolled out of view
 function trimPads(pane) {
   const position = view(pane);
@@ -933,41 +951,131 @@ function trimPads(pane) {
 const isVisible = (pane, el) =>
   viewOffset(pane, el) < pane.el.clientHeight && viewOffset(pane, el) + el.offsetHeight > 0;
 
-let syncing = null;
+/* Linked scrolling */
 
-function syncScroll(from, to) {
-  if (!from.entries.length || !to.entries.length) return;
-  // Keep the selected entry at the same height on both sides while it is visible
-  const selected = state.selected && from.byOrigin.get(state.selected);
-  const counterpart = state.selected && to.byOrigin.get(state.selected);
-  if (selected && counterpart && isVisible(from, selected)) {
-    setView(to, contentTop(to, counterpart) - viewOffset(from, selected));
-    return;
+// Map from the content of a pane to the content of the other pane, as points
+// with straight lines between them. The middle of each entry is mapped to the
+// middle of its counterpart, which spreads the space of removed entries over
+// the entries around them, so that the other pane moves without leaps. If the
+// counterparts are in another order, e.g., sorted, the entries are mapped
+// exactly, and the map jumps in the middle of the space between them.
+function linkMap(from, to) {
+  if (from.link) return from.link;
+  const order = new Map();
+  for (const el of to.entries) {
+    if (from.byOrigin.has(el.dataset.origin)) order.set(el.dataset.origin, order.size);
   }
-  const y = from.el.scrollTop;
-  let idx = entryAt(from, y);
-  if (idx < 0) {
-    setView(to, 0);
-    return;
+  const points = [[0, 0]];
+  let last = { idx: -1, end: [0, 0] };
+  const add = (idx, top, targetTop, height, targetHeight) => {
+    if (idx !== last.idx + 1) {
+      const middle = (last.end[0] + top) / 2;
+      points.push(last.end, [middle, last.end[1]], [middle, targetTop], [top, targetTop]);
+    }
+    points.push([top + height / 2, targetTop + targetHeight / 2]);
+    last = { idx, end: [top + height, targetTop + targetHeight] };
+  };
+  for (const el of from.entries) {
+    const target = to.byOrigin.get(el.dataset.origin);
+    if (!target) continue;
+    add(order.get(el.dataset.origin), contentTop(from, el), contentTop(to, target),
+        el.offsetHeight, target.offsetHeight);
   }
-  const el = from.entries[idx];
-  const fraction = Math.min(1, (y - el.offsetTop) / Math.max(1, el.offsetHeight));
-  // Removed entries have no counterpart: use the next entry that has one
-  let target = to.byOrigin.get(el.dataset.origin);
-  const exact = Boolean(target);
-  while (!target && ++idx < from.entries.length) {
-    target = to.byOrigin.get(from.entries[idx].dataset.origin);
-  }
-  if (!target) return;
-  const position = contentTop(to, target) + (exact ? fraction * target.offsetHeight : 0);
-  setView(to, Math.min(position, maxView(to)));
+  // The ends of both panes
+  add(order.size, contentEnd(from), contentEnd(to), 0, 0);
+  from.link = points;
+  return points;
 }
 
-function setScroll(pane, top) {
-  if (Math.abs(pane.el.scrollTop - top) < 1) return;
-  syncing = pane;
-  pane.el.scrollTop = top;
-  requestAnimationFrame(() => { if (syncing === pane) syncing = null; });
+function mapLink(points, position) {
+  if (position <= points[0][0]) return points[0][1];
+  // The last point at or before the position
+  let lo = 0;
+  let hi = points.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (points[mid][0] <= position) lo = mid;
+    else hi = mid - 1;
+  }
+  const [x, y] = points[lo];
+  const next = points[lo + 1];
+  return next ? y + (position - x) / (next[0] - x) * (next[1] - y) : y;
+}
+
+// The line at which the panes are linked, as a fraction of the height of a
+// pane: the top at its start, the middle, and the bottom at its end, so that
+// both panes start and end together
+function linkLine(pane, position) {
+  const max = maxView(pane);
+  if (max <= 0) return 0;
+  const zone = Math.min(pane.el.clientHeight, max) / 2;
+  const clamped = Math.min(Math.max(position, 0), max);
+  return (Math.min(clamped, zone) + zone - Math.min(max - clamped, zone)) / (2 * zone);
+}
+
+// The view of the other pane that shows the content of the line of a pane
+function linkedView(from, to, position) {
+  const line = linkLine(from, position);
+  const at = mapLink(linkMap(from, to), position + line * from.el.clientHeight);
+  return Math.min(Math.max(0, at - line * to.el.clientHeight), maxView(to));
+}
+
+// The selected entry and its counterpart, while the entry is visible in a pane
+function selectedPair(from, to) {
+  const el = state.selected && from.byOrigin.get(state.selected);
+  const target = state.selected && to.byOrigin.get(state.selected);
+  return el && target && isVisible(from, el) ? [el, target] : null;
+}
+
+// The view of the other pane that shows the counterpart at the same height
+const alignedView = (from, to, [el, target], position) =>
+  contentTop(to, target) - (contentTop(from, el) - position);
+
+// Scroll the other pane to what a pane shows, e.g., after the panes changed
+function align(from, to) {
+  if (!from.entries.length || !to.entries.length) return;
+  const pair = selectedPair(from, to);
+  const position = view(from);
+  setView(to, pair ? alignedView(from, to, pair, position) : linkedView(from, to, position));
+  handled(from);
+}
+
+// Move the other pane with a pane that the user scrolls: as much as the view
+// it should show moves, so that it never jumps, e.g., when the user switches
+// panes or the selected entry leaves the view. If it does not show that view,
+// e.g., after its end was reached, it catches up while the user scrolls.
+function follow(from, to, previous) {
+  const position = view(from);
+  const delta = position - previous;
+  if (!delta || !from.entries.length || !to.entries.length) return;
+  const pair = selectedPair(from, to);
+  const current = view(to);
+  let move = delta;
+  let goal;
+  if (pair) {
+    goal = alignedView(from, to, pair, position);
+  } else {
+    // As much as the content at the line moves. The line itself moves near the
+    // ends, which is caught up with below, so that it cannot reverse the move.
+    const line = linkLine(from, position) * from.el.clientHeight;
+    const map = linkMap(from, to);
+    move = mapLink(map, position + line) - mapLink(map, previous + line);
+    goal = linkedView(from, to, position);
+  }
+  const offset = goal - (current + move);
+  // Catch up at least half as fast as the user scrolls, and fully at the end of
+  // the pane, by moving further or less far, but never backwards
+  const remaining = Math.max(0, delta > 0 ? maxView(from) - position : position);
+  const size = Math.abs(delta);
+  const catchUp = Math.min(Math.abs(offset),
+    Math.max(size / 2, Math.abs(offset) * size / (remaining + size)));
+  const direction = Math.sign(move) || Math.sign(delta);
+  let next = current + move;
+  if (Math.sign(offset) === direction) next += direction * catchUp;
+  else next -= direction * Math.min(catchUp, Math.abs(move));
+  // Only the selected entry is aligned with blank space
+  if (!pair) next = Math.min(Math.max(next, Math.min(0, current)), Math.max(maxView(to), current));
+  setView(to, next);
 }
 
 for (const name of ["original", "preview"]) {
@@ -975,9 +1083,12 @@ for (const name of ["original", "preview"]) {
   pane.el.addEventListener("scroll", () => {
     clearTimeout(pane.trimTimer);
     pane.trimTimer = setTimeout(() => trimPads(pane), 250);
-    if (syncing === pane) return;
+    if (pane.expected !== null && Math.abs(pane.el.scrollTop - pane.expected) < 1) return;
+    pane.expected = null;
+    const previous = pane.last;
+    pane.last = view(pane);
     state.lastPane = name;
-    if (state.linkScroll) syncScroll(pane, panes[other(name)]);
+    if (state.linkScroll) follow(pane, panes[other(name)], previous);
   }, { passive: true });
   pane.el.addEventListener("click", (event) => {
     const dup = event.target.closest("[data-dup]");
@@ -991,6 +1102,12 @@ for (const name of ["original", "preview"]) {
   });
 }
 
+// Lines wrap, so the positions of the entries change with the width
+const resizeObserver = new ResizeObserver(() => {
+  for (const pane of Object.values(panes)) pane.link = null;
+});
+for (const pane of Object.values(panes)) resizeObserver.observe(pane.content);
+
 // Select an entry on one side and show it at the same height on the other
 function select(origin, fromName) {
   state.selected = state.selected === origin ? null : origin;
@@ -1003,7 +1120,8 @@ function select(origin, fromName) {
   const to = panes[other(fromName)];
   const el = from.byOrigin.get(origin);
   const target = to.byOrigin.get(origin);
-  if (el && target) setView(to, contentTop(to, target) - viewOffset(from, el));
+  if (el && target) setView(to, alignedView(from, to, [el, target], view(from)));
+  handled(from);
 }
 
 /* Duplicates dialog */
