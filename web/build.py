@@ -136,6 +136,7 @@ def build(out_dir):
         shutil.rmtree(out_dir)
     os.makedirs(out_dir)
     copy_static(out_dir)
+    shutil.copytree(os.path.join(WEB_DIR, "fonts"), os.path.join(out_dir, "fonts"))
     os.makedirs(os.path.join(out_dir, "examples"))
     for name in EXAMPLES:
         shutil.copy(os.path.join(ROOT_DIR, "examples", name),

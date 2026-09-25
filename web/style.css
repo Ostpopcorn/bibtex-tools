@@ -87,6 +87,12 @@
   --shadow-lg: 0 16px 40px rgba(0, 0, 0, .55);
 }
 
+@font-face {
+  font-family: "Parisienne";
+  src: url("fonts/parisienne.woff2") format("woff2");
+  font-display: swap;
+}
+
 * { box-sizing: border-box; }
 
 [hidden] { display: none !important; }
@@ -190,7 +196,13 @@ h1, h2, h3 { margin: 0; }
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; letter-spacing: -.01em; white-space: nowrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; line-height: 1; letter-spacing: -.01em; white-space: nowrap; }
+.brand .tagline {
+  margin-left: 3px;
+  font: 400 21px "Parisienne", "Segoe Script", cursive;
+  letter-spacing: 0;
+  color: var(--accent);
+}
 .sources { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 body:not(.has-files) .add-wrap { display: none; }
 .files { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -554,14 +566,27 @@ body.has-files.dragging .workspace { outline: 2px dashed var(--accent); outline-
 .msg svg { width: 14px; height: 14px; }
 .msg button { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 .credits { display: flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; font-size: 12px; }
-.credits a, .link, .credit a, .about-small a {
-  color: inherit;
+.credit a, .about-small a, .credit-link span {
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
   text-underline-offset: 2px;
 }
-.credits a:hover, .link:hover, .credit a:hover, .about-small a:hover { color: var(--accent); }
-.link { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+.credit a, .about-small a { color: inherit; }
+.credit a:hover, .about-small a:hover, .credit-link:hover { color: var(--accent); }
+.credit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.credit-link svg { width: 13px; height: 13px; }
+svg.icon-fill { fill: currentColor; stroke: none; }
 .status-right { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--chg-bar); }
 .dot.ready { background: var(--add-bar); }
