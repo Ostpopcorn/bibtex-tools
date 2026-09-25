@@ -1180,32 +1180,92 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-function encodeSettings(settings) {
-  const bytes = new TextEncoder().encode(JSON.stringify(settings));
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+// Settings in shared links, e.g., #unicode=on&duplicates=keep, by their
+// name in the link. Only settings that differ from the defaults are listed.
+const LINK_SETTINGS = {
+  filter: "filter.enabled",
+  clean: "clean.enabled",
+  unicode: "clean.unicode",
+  modernize: "modernize.enabled",
+  fix: "modernize.fields",
+  shield: "modernize.shield",
+  iso4: "modernize.iso4",
+  ids: "modernize.ids",
+  arxiv: "modernize.arxiv",
+  remove: "remove.enabled",
+  fields: "remove.fields",
+  duplicates: "duplicates.mode",
+  rename: "duplicates.rename",
+  sort: "sort",
+};
+
+// The value of a setting, with the default lists of fields filled in
+function effectiveSetting(settings, path) {
+  const value = getPath(settings, path);
+  if (path === "modernize.fields") return value ?? defaults.clean_fields;
+  if (path === "remove.fields") return value ?? defaults.remove_fields;
+  return value;
 }
 
-function decodeSettings(text) {
+function settingsToLink(settings) {
+  const parts = [];
+  for (const [name, path] of Object.entries(LINK_SETTINGS)) {
+    const value = effectiveSetting(settings, path);
+    if (JSON.stringify(value) === JSON.stringify(effectiveSetting(DEFAULT_SETTINGS, path))) continue;
+    const text = typeof value === "boolean" ? (value ? "on" : "off")
+      : Array.isArray(value) ? value.map(encodeURIComponent).join(",")
+      : encodeURIComponent(value);
+    parts.push(`${name}=${text}`);
+  }
+  return parts.join("&");
+}
+
+function settingsFromLink(params) {
+  const settings = structuredClone(DEFAULT_SETTINGS);
+  for (const [name, path] of Object.entries(LINK_SETTINGS)) {
+    if (!params.has(name)) continue;
+    const text = params.get(name).trim();
+    const current = getPath(settings, path);
+    if (typeof current === "boolean") {
+      setPath(settings, path, ["on", "1", "true", "yes"].includes(text.toLowerCase()));
+    } else if (path.endsWith(".fields")) {
+      const fields = text.split(",").map((f) => f.trim().toLowerCase()).filter(Boolean);
+      setPath(settings, path, path === "modernize.fields"
+        ? defaults.clean_fields.filter((f) => fields.includes(f)) : fields);
+    } else {
+      setPath(settings, path, text);
+    }
+  }
+  return validSettings(settings);
+}
+
+// Links from before the plain format, with the settings as base64 JSON
+function decodeOldSettings(text) {
   const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
-  return JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0))));
+  const json = new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+  return validSettings(merge(DEFAULT_SETTINGS, JSON.parse(json)));
 }
 
 $("#share").addEventListener("click", async () => {
   const url = new URL(location.href);
-  url.hash = `settings=${encodeSettings(state.settings)}`;
+  url.hash = settingsToLink(state.settings);
+  const href = url.hash ? url.href : url.href.replace(/#$/, "");
+  const note = url.hash ? "It contains your settings, not your files."
+    : "Your settings are the defaults, so it is the plain link.";
   try {
-    await navigator.clipboard.writeText(url.href);
-    toast("Link copied. It contains your settings, not your files.");
+    await navigator.clipboard.writeText(href);
+    toast(`Link copied. ${note}`);
   } catch {
-    prompt("Copy this link. It contains your settings, not your files.", url.href);
+    prompt(`Copy this link. ${note}`, href);
   }
 });
 
 function loadSharedSettings() {
-  const match = location.hash.match(/settings=([\w-]+)/);
-  if (!match) return;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const old = params.get("settings");
+  if (!old && !Object.keys(LINK_SETTINGS).some((name) => params.has(name))) return;
   try {
-    state.settings = validSettings(merge(DEFAULT_SETTINGS, decodeSettings(match[1])));
+    state.settings = old ? decodeOldSettings(old) : settingsFromLink(params);
     saveSettings();
     toast("Loaded the shared settings");
   } catch {

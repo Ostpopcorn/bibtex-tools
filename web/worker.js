@@ -10,10 +10,12 @@ async function init() {
   postMessage({ type: "progress", text: "Starting Python…" });
   const pyodide = await loadPyodide({ indexURL: new URL("./pyodide/", import.meta.url).href });
   postMessage({ type: "progress", text: "Installing bibtextools…" });
-  const manifest = await (await fetch(new URL("./wheels/manifest.json", import.meta.url))).json();
+  // The wheels keep their names when they change, so check for new versions
+  const fetchNew = (path) => fetch(new URL(path, import.meta.url), { cache: "no-cache" });
+  const manifest = await (await fetchNew("./wheels/manifest.json")).json();
   const sitePackages = pyodide.runPython("import site; site.getsitepackages()[0]");
   await Promise.all(manifest.wheels.map(async (wheel) => {
-    const response = await fetch(new URL("./wheels/" + wheel, import.meta.url));
+    const response = await fetchNew("./wheels/" + wheel);
     if (!response.ok) throw new Error(`Could not download ${wheel} (${response.status})`);
     pyodide.unpackArchive(await response.arrayBuffer(), "wheel", { extractDir: sitePackages });
   }));
