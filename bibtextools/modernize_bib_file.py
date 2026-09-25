@@ -146,7 +146,8 @@ def abbreviate_journalname(entry):
     return entry
 
 def modernize_bib_main(bib_file, remove_fields=None, replace_ids=False,
-                       force=False, arxiv=False, iso4=False,
+                       remove_duplicates=False, interactive=False,
+                       arxiv=False, iso4=False,
                        verbose=logging.WARN, encoding='utf-8', **kwargs):
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
     logger = logging.getLogger('modernize_bib_file')
@@ -157,10 +158,13 @@ def modernize_bib_main(bib_file, remove_fields=None, replace_ids=False,
         remove_fields = []
     logger.info("Fields to remove: {}".format(remove_fields))
 
-    bib_database = load_bib_file(bib_file, encoding=encoding)
+    bib_database = load_bib_file(bib_file, encoding=encoding).get_entry_list()
     logger.debug("Successfully loaded bib file")
-    bib_database = remove_duplicate_entries(bib_database, force=force, verbose=verbose)
-    logger.debug("Successfully removed duplicates")
+    if remove_duplicates or interactive:
+        bib_database = remove_duplicate_entries(bib_database,
+                                                interactive=interactive,
+                                                verbose=verbose)
+        logger.debug("Successfully removed duplicates")
     #if has_duplicates(bib_database):
     #    logger.warning("The loaded bib-file has duplicates (same ID for multiple entries). Consider running this script with the --replace_ids option to get automatically rename them.")
 

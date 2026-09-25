@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   biber use the first entry as well, so citations of `key` keep working. New
   IDs no longer collide with existing ones, and the renamed IDs are shown as a
   warning.
+- Duplicate entries are no longer removed by default in `clean`, `modernize`,
+  and `combine`, so entries are only removed when this is intended. The
+  `--force` option is replaced by `--remove-duplicates`, which removes the
+  entry with less fields of each pair, and `-i`/`--interactive`, which asks for
+  each pair (the previous default).
+- The `force` argument of `remove_duplicate_entries` is replaced by
+  `interactive` (default `False`), and the `force` argument of the main
+  functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
 - Invalid input in the interactive prompt for removing duplicate entries (in
@@ -31,8 +39,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - The removal of duplicate entries no longer treats different works as
   duplicates: entries with different DOIs, arXiv IDs, or ISBNs, and entries
   other than articles and conference papers from different years, e.g., two
-  editions of a book, are kept. With `--force`, the removed entries are listed
-  in a warning.
+  editions of a book, are kept. Automatically removed entries are listed in
+  a warning.
 - The removal of duplicate entries no longer crashes on entries without a
   title or author. The editor is used for entries without an author.
 
