@@ -151,8 +151,10 @@
         <p>Toggle the settings above and see the result next to the original, before you download it.</p>
         <div class="drop-actions">
           <button class="btn primary large" data-pick="bib">Open .bib files</button>
+          <button class="btn large" data-paste>Paste BibTeX</button>
           <button class="btn large" id="example">Try an example</button>
         </div>
+        <p class="paste-hint">You can also paste anywhere on this page with <kbd class="paste-key">Ctrl+V</kbd>.</p>
         <p class="privacy">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           Your files never leave your computer. Everything runs in your browser.
@@ -216,6 +218,24 @@
       <button class="btn" id="dup-next">Next →</button>
       <span class="spacer"></span>
       <button class="btn primary" data-dialog-close>Done</button>
+    </footer>
+  </dialog>
+
+  <dialog class="dialog paste-dialog" id="paste-dialog" aria-labelledby="paste-title">
+    <header class="dialog-head">
+      <h2 id="paste-title">Paste BibTeX</h2>
+      <span class="meta">Paste the content of a bib file, e.g., copied from Google Scholar or your reference manager.</span>
+      <button class="btn ghost icon-btn" data-dialog-close aria-label="Close">×</button>
+    </header>
+    <textarea id="paste-text" spellcheck="false" autocomplete="off" aria-label="BibTeX to add" placeholder="@article{key,
+  author = {…},
+  title = {…},
+}"></textarea>
+    <footer class="dialog-foot">
+      <span class="hint" id="paste-error"></span>
+      <span class="spacer"></span>
+      <button class="btn" data-dialog-close>Cancel</button>
+      <button class="btn primary" id="paste-add">Add</button>
     </footer>
   </dialog>
 

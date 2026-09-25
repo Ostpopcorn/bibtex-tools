@@ -4,7 +4,8 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-const SETTINGS_KEY = "bibtextools.settings.v1";
+// Bumped when the defaults change, so that they apply to everybody once
+const SETTINGS_KEY = "bibtextools.settings.v2";
 const ARXIV_KEY = "bibtextools.arxiv.v1";
 const THEME_KEY = "bibtextools.theme";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
@@ -18,9 +19,9 @@ let defaults = {
 const DEFAULT_SETTINGS = {
   filter: { enabled: false },
   clean: { enabled: false, unicode: false },
-  modernize: { enabled: true, fields: null, shield: false, iso4: false, ids: false, arxiv: false },
+  modernize: { enabled: true, fields: null, shield: true, iso4: false, ids: false, arxiv: false },
   remove: { enabled: true, fields: null },
-  duplicates: { mode: "keep", rename: true },
+  duplicates: { mode: "choose", rename: true },
   sort: true,
 };
 
@@ -43,9 +44,18 @@ const state = {
   lastPane: "preview",
 };
 
+// Each pane has blank space above and below its content, which lets an entry
+// be shown at any height, e.g., to align it with the selected entry
+function makePane(el) {
+  const [padTop, content, padBottom] = ["pad", "content", "pad"].map((cls) =>
+    Object.assign(document.createElement("div"), { className: cls }));
+  el.append(padTop, content, padBottom);
+  return { el, content, padTop, padBottom, top: 0, bottom: 0, entries: [], byOrigin: new Map() };
+}
+
 const panes = {
-  original: { el: $("#original"), entries: [], byOrigin: new Map() },
-  preview: { el: $("#preview"), entries: [], byOrigin: new Map() },
+  original: makePane($("#original")),
+  preview: makePane($("#preview")),
 };
 
 /* Helpers */
@@ -86,7 +96,9 @@ function merge(base, extra) {
 
 
 function validSettings(settings) {
-  if (!DUPLICATE_MODES.includes(settings.duplicates.mode)) settings.duplicates.mode = "keep";
+  if (!DUPLICATE_MODES.includes(settings.duplicates.mode)) {
+    settings.duplicates.mode = DEFAULT_SETTINGS.duplicates.mode;
+  }
   return settings;
 }
 
@@ -373,8 +385,10 @@ function setSources(sources) {
   state.error = null;
   state.selected = null;
   document.body.classList.toggle("has-files", sources.length > 0);
-  panes.original.el.scrollTop = 0;
-  panes.preview.el.scrollTop = 0;
+  for (const pane of Object.values(panes)) {
+    setPad(pane, 0, 0);
+    pane.el.scrollTop = 0;
+  }
   render();
   schedule(0);
 }
@@ -421,6 +435,71 @@ document.addEventListener("click", (event) => {
   if (clear) setAuxFile(clear.dataset.clear, null);
 });
 
+/* Paste */
+
+const pasteDialog = $("#paste-dialog");
+const looksLikeBib = (text) => /@\s*\w+\s*[{(]/.test(text);
+
+function pastedName() {
+  const names = new Set(state.sources.map((source) => source.name));
+  let name = "pasted.bib";
+  for (let i = 2; names.has(name); i++) name = `pasted-${i}.bib`;
+  return name;
+}
+
+// Add pasted BibTeX as another bib file. Returns whether it was added.
+function addPasted(text) {
+  if (!looksLikeBib(text)) return false;
+  const name = pastedName();
+  setSources([...state.sources, { name, text }]);
+  toast(`Added the pasted text as ${name}`);
+  return true;
+}
+
+function openPasteDialog() {
+  $("#paste-text").value = "";
+  $("#paste-error").textContent = "";
+  pasteDialog.showModal();
+  $("#paste-text").focus();
+}
+
+function addFromDialog() {
+  const text = $("#paste-text").value;
+  if (addPasted(text)) pasteDialog.close();
+  else $("#paste-error").textContent = "This does not look like BibTeX: no entry like @article{…} found.";
+}
+
+$("#paste-add").addEventListener("click", addFromDialog);
+$("#paste-text").addEventListener("input", () => { $("#paste-error").textContent = ""; });
+$("#paste-text").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) addFromDialog();
+});
+pasteDialog.addEventListener("click", (event) => {
+  if (event.target === pasteDialog || event.target.closest("[data-dialog-close]")) pasteDialog.close();
+});
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-paste]")) openPasteDialog();
+});
+
+// Paste anywhere on the page, except into fields and dialogs
+document.addEventListener("paste", async (event) => {
+  if (event.target.closest("input, textarea, [contenteditable]") || document.querySelector("dialog[open]")) return;
+  const data = event.clipboardData;
+  if (data.files.length) {
+    event.preventDefault();
+    await openFiles(data.files);
+    return;
+  }
+  const text = data.getData("text/plain");
+  if (!text.trim()) return;
+  event.preventDefault();
+  if (!addPasted(text)) toast("The pasted text does not look like BibTeX");
+});
+
+if (/Mac|iPhone|iPad/.test(navigator.platform)) {
+  $$(".paste-key").forEach((key) => { key.textContent = "⌘V"; });
+}
+
 $("#example").addEventListener("click", async () => {
   const response = await fetch("examples/old.bib");
   setSources([{ name: "old.bib", text: await response.text() }]);
@@ -455,7 +534,12 @@ function renderFiles() {
     add.textContent = "+ Add .bib";
     add.title = "Add another bib file to combine them";
     add.dataset.pick = "bib";
-    files.append(add);
+    const paste = document.createElement("button");
+    paste.className = "chip add";
+    paste.textContent = "Paste";
+    paste.title = "Paste BibTeX to add it";
+    paste.dataset.paste = "";
+    files.append(add, paste);
   }
 }
 
@@ -565,13 +649,13 @@ function renderOriginal(outByOrigin, unresolved) {
     }
     for (let i = next; i < lines.length; i++) parts.push(lineHtml(i + 1, lines[i]));
   });
-  panes.original.el.innerHTML = parts.join("");
+  panes.original.content.innerHTML = parts.join("");
 }
 
 function renderPreview(unresolved) {
   const r = state.response;
   if (!r) {
-    panes.preview.el.innerHTML = "";
+    panes.preview.content.innerHTML = "";
     return;
   }
   const parts = [];
@@ -601,7 +685,7 @@ function renderPreview(unresolved) {
   if (!r.entries.length) {
     parts.push(`<div class="l"><span class="n"></span><span class="t muted">No entries left with these settings.</span></div>`);
   }
-  panes.preview.el.innerHTML = parts.join("");
+  panes.preview.content.innerHTML = parts.join("");
 }
 
 function indexPane(pane) {
@@ -742,26 +826,74 @@ function restoreAnchor(pane, anchor) {
   pane.el.scrollTop = el ? el.offsetTop + anchor.offset : anchor.offset;
 }
 
+/* Positions without the blank space above the content ("view") */
+
+const contentTop = (pane, el) => el.offsetTop - pane.top;
+const view = (pane) => pane.el.scrollTop - pane.top;
+const maxView = (pane) =>
+  Math.max(0, pane.el.scrollHeight - pane.top - pane.bottom - pane.el.clientHeight);
+const viewOffset = (pane, el) => el.offsetTop - pane.el.scrollTop;
+
+function setPad(pane, top, bottom) {
+  if (top !== pane.top) {
+    pane.top = top;
+    pane.padTop.style.height = `${top}px`;
+  }
+  if (bottom !== pane.bottom) {
+    pane.bottom = bottom;
+    pane.padBottom.style.height = `${bottom}px`;
+  }
+}
+
+// Scroll the pane to a view position, with blank space where there is no
+// content, e.g., a negative view shows blank space above the first line
+function setView(pane, position) {
+  const max = maxView(pane);
+  setPad(pane, Math.max(0, Math.round(-position)), Math.max(0, Math.round(position - max)));
+  setScroll(pane, position + pane.top);
+}
+
+// Remove the blank space when it is scrolled out of view
+function trimPads(pane) {
+  const position = view(pane);
+  const top = position >= 0 ? 0 : pane.top;
+  const bottom = position <= maxView(pane) ? 0 : pane.bottom;
+  if (top === pane.top && bottom === pane.bottom) return;
+  setPad(pane, top, bottom);
+  setScroll(pane, position + top);
+}
+
+const isVisible = (pane, el) =>
+  viewOffset(pane, el) < pane.el.clientHeight && viewOffset(pane, el) + el.offsetHeight > 0;
+
 let syncing = null;
 
 function syncScroll(from, to) {
   if (!from.entries.length || !to.entries.length) return;
+  // Keep the selected entry at the same height on both sides while it is visible
+  const selected = state.selected && from.byOrigin.get(state.selected);
+  const counterpart = state.selected && to.byOrigin.get(state.selected);
+  if (selected && counterpart && isVisible(from, selected)) {
+    setView(to, contentTop(to, counterpart) - viewOffset(from, selected));
+    return;
+  }
   const y = from.el.scrollTop;
   let idx = entryAt(from, y);
   if (idx < 0) {
-    setScroll(to, 0);
+    setView(to, 0);
     return;
   }
   const el = from.entries[idx];
   const fraction = Math.min(1, (y - el.offsetTop) / Math.max(1, el.offsetHeight));
   // Removed entries have no counterpart: use the next entry that has one
   let target = to.byOrigin.get(el.dataset.origin);
-  let exact = Boolean(target);
+  const exact = Boolean(target);
   while (!target && ++idx < from.entries.length) {
     target = to.byOrigin.get(from.entries[idx].dataset.origin);
   }
   if (!target) return;
-  setScroll(to, exact ? target.offsetTop + fraction * target.offsetHeight : target.offsetTop);
+  const position = contentTop(to, target) + (exact ? fraction * target.offsetHeight : 0);
+  setView(to, Math.min(position, maxView(to)));
 }
 
 function setScroll(pane, top) {
@@ -774,6 +906,8 @@ function setScroll(pane, top) {
 for (const name of ["original", "preview"]) {
   const pane = panes[name];
   pane.el.addEventListener("scroll", () => {
+    clearTimeout(pane.trimTimer);
+    pane.trimTimer = setTimeout(() => trimPads(pane), 250);
     if (syncing === pane) return;
     state.lastPane = name;
     if (state.linkScroll) syncScroll(pane, panes[other(name)]);
@@ -790,8 +924,10 @@ for (const name of ["original", "preview"]) {
   });
 }
 
+// Select an entry on one side and show it at the same height on the other
 function select(origin, fromName) {
   state.selected = state.selected === origin ? null : origin;
+  state.lastPane = fromName;
   for (const pane of Object.values(panes)) {
     pane.entries.forEach((el) => el.classList.toggle("selected", el.dataset.origin === state.selected));
   }
@@ -800,7 +936,7 @@ function select(origin, fromName) {
   const to = panes[other(fromName)];
   const el = from.byOrigin.get(origin);
   const target = to.byOrigin.get(origin);
-  if (el && target) setScroll(to, target.offsetTop - (el.offsetTop - from.el.scrollTop));
+  if (el && target) setView(to, contentTop(to, target) - viewOffset(from, el));
 }
 
 /* Duplicates dialog */
