@@ -4,7 +4,6 @@ with it."""
 import bisect
 import functools
 import json
-import logging
 import re
 from collections import defaultdict
 
@@ -19,10 +18,6 @@ from .util import (format_bib_entries, get_entry_spans, get_field_spans,
 
 _PIPELINE = Pipeline()
 _ABBR_CACHE = {}
-
-# The web app shows the warnings of the pipeline instead of the console
-logging.getLogger("load_bib_file").addHandler(logging.NullHandler())
-logging.getLogger("load_bib_file").propagate = False
 
 
 def defaults():
