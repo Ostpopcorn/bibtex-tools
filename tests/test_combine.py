@@ -17,14 +17,17 @@ def test_combine_databases(entry_list):
     assert len(combined_entries) == 9
 
 def test_combine_main_len():
-    combined_entries = combine_bib_files.combine_bib_files_main(BIB_FILES,
-                                                                force=True)
+    combined_entries = combine_bib_files.combine_bib_files_main(BIB_FILES)
     assert len(combined_entries) == 8
+
+def test_combine_main_keep_duplicates():
+    combined_entries = combine_bib_files.combine_bib_files_main(BIB_FILES,
+                                                                remove_duplicates=False)
+    assert len(combined_entries) == 9
 
 def test_combine_main_allow_duplicates():
     combined_entries = combine_bib_files.combine_bib_files_main(BIB_FILES,
-                                                                allow_duplicates=True,
-                                                                force=True)
+                                                                allow_duplicates=True)
     combined_ids = set([x[KEY_ID] for x in combined_entries])
     print(combined_ids)
     assert (len(combined_entries) == 8 and
@@ -33,8 +36,7 @@ def test_combine_main_allow_duplicates():
 
 def test_combine_main_replace_duplicates():
     combined_entries = combine_bib_files.combine_bib_files_main(BIB_FILES,
-                                                                allow_duplicates=False,
-                                                                force=True)
+                                                                allow_duplicates=False)
     combined_ids = set([x[KEY_ID] for x in combined_entries])
     assert combined_ids == {"Author2020", "Author2020:b",
                             "KEY", "KEY:b", "RemoveFields", "Cesar2013",
