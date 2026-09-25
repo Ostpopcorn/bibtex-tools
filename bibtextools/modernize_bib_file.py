@@ -2,7 +2,6 @@ import functools
 import logging
 import re
 
-import feedparser
 from bibtexparser.customization import string_to_latex#, getnames
 from pyiso4 import ltwa
 from pyiso4.ltwa import Abbreviate
@@ -114,6 +113,7 @@ def replace_bib_id(entry):
     return new_id
 
 def get_arxiv_category(eprint):
+    import feedparser  # only needed here, not available in the web app
     base_url = 'http://export.arxiv.org/api/query?'
     search_query = {'id_list': eprint,}
     query = "&".join(["{}={}".format(k, v) for k, v in search_query.items()])
@@ -163,6 +163,43 @@ def abbreviate_journalname(entry):
         entry[_key] = journal_abbr
     return entry
 
+def modernize_entry(entry, remove_fields=(), replace_ids=False, arxiv=False,
+                    iso4=False, clean_fields=None, arxiv_lookup=None,
+                    **kwargs):
+    """Modernize a single entry, which is changed in place. Only the fields
+    in `clean_fields` are cleaned with `CLEAN_FUNC` (default: all of them).
+    `arxiv_lookup` returns the primary category of an arXiv eprint (default:
+    `get_arxiv_category`, which downloads it)."""
+    logger = logging.getLogger('modernize_bib_file')
+    if arxiv_lookup is None:
+        arxiv_lookup = get_arxiv_category
+    for _key, _clean_func in CLEAN_FUNC.items():
+        if clean_fields is not None and _key not in clean_fields:
+            continue
+        _value = entry.get(_key)
+        if _value is not None:
+            logger.debug("Cleaning field: %s", _key)
+            entry[_key] = _clean_func(_value, **kwargs)
+    if arxiv:
+        eprint = entry.get(KEY_EPRINT)
+        primary_class = entry.get(KEY_CATEGORY)
+        if (eprint is not None) and (primary_class is None):
+            logging.debug("Retrieving arXiv primary category")
+            _primary_class = arxiv_lookup(eprint)
+            if _primary_class is not None:
+                entry[KEY_ARCHIVE] = "arXiv"
+                entry[KEY_CATEGORY] = _primary_class
+                logging.debug("Primary category successfully changed to: %s", _primary_class)
+    for _field in remove_fields:
+        logger.debug("Removing field: %s", _field)
+        entry.pop(_field, None)
+    if replace_ids:
+        logger.debug("Replacing bib ID")
+        entry[KEY_ID] = replace_bib_id(entry)
+    if iso4:
+        entry = abbreviate_journalname(entry)
+    return entry
+
 def modernize_bib_main(bib_file, remove_fields=None, replace_ids=False,
                        remove_duplicates=False, interactive=False,
                        arxiv=False, iso4=False,
@@ -189,29 +226,9 @@ def modernize_bib_main(bib_file, remove_fields=None, replace_ids=False,
     _clean_entries = []
     for entry in bib_database:
         logger.info("Working on entry: %s", entry.get(KEY_ID))
-        for _key, _clean_func in CLEAN_FUNC.items():
-            _value = entry.get(_key)
-            if _value is not None:
-                logger.debug("Cleaning field: %s", _key)
-                entry[_key] = _clean_func(_value, **kwargs)
-        if arxiv:
-            eprint = entry.get(KEY_EPRINT)
-            primary_class = entry.get(KEY_CATEGORY)
-            if (eprint is not None) and (primary_class is None):
-                logging.debug("Retrieving arXiv primary category")
-                _primary_class = get_arxiv_category(eprint)
-                if _primary_class is not None:
-                    entry[KEY_ARCHIVE] = "arXiv"
-                    entry[KEY_CATEGORY] = _primary_class
-                    logging.debug("Primary category successfully changed to: %s", _primary_class)
-        for _field in remove_fields:
-            logger.debug("Removing field: %s", _field)
-            entry.pop(_field, None)
-        if replace_ids:
-            logger.debug("Replacing bib ID")
-            entry[KEY_ID] = replace_bib_id(entry)
-        if iso4:
-            entry = abbreviate_journalname(entry)
+        entry = modernize_entry(entry, remove_fields=remove_fields,
+                                replace_ids=replace_ids, arxiv=arxiv,
+                                iso4=iso4, **kwargs)
         _clean_entries.append(entry)
     if replace_ids:
         _clean_entries = replace_duplicate_ids(_clean_entries)

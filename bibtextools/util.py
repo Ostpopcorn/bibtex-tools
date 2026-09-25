@@ -1,12 +1,10 @@
 import logging
 import re
-import os.path
 from collections import Counter
 
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
-from bibtexparser import bibdatabase
 from bibtexparser.bibdatabase import BibDatabase
 
 from .const import KEY_ID
@@ -48,44 +46,66 @@ def strip_comments(bib_str):
         idx += 1
     return "".join(stripped)
 
-_RE_ENTRY_HEAD = re.compile(r'^[ \t]*@[ \t]*(\w+)[ \t]*[{(]\s*([^\s,{}]+)\s*,',
+_RE_ENTRY_HEAD = re.compile(r'^[ \t]*@[ \t]*(\w+)[ \t]*(?P<open>[{(])\s*(?P<id>[^\s,{}]+)\s*,',
                             re.MULTILINE)
 _RE_COMMENT_HEAD = re.compile(r'^[ \t]*@[ \t]*comment[ \t]*\{',
                               re.MULTILINE | re.IGNORECASE)
 
-def get_entry_ids(bib_str):
-    """Return the IDs of all entries that start on a new line in a bib
-    string. Unlike a full parser, this does not depend on the content of the
-    entries being valid."""
-    comment_spans = []
-    for _match in _RE_COMMENT_HEAD.finditer(bib_str):
-        depth = 1
-        idx = _match.end()
-        while depth > 0 and idx < len(bib_str):
-            depth += {"{": 1, "}": -1}.get(bib_str[idx], 0)
-            idx += 1
-        comment_spans.append((_match.start(), idx))
-    ids = []
+def _find_closing_brace(bib_str, idx):
+    """Return the index after the brace that closes the one before `idx`."""
+    depth = 1
+    while depth > 0 and idx < len(bib_str):
+        depth += {"{": 1, "}": -1}.get(bib_str[idx], 0)
+        idx += 1
+    return idx
+
+def get_entry_spans(bib_str):
+    """Return the ID, start, and end index of all entries that start on a
+    new line in a bib string. Unlike a full parser, this does not depend on
+    the content of the entries being valid."""
+    comment_spans = [(_match.start(), _find_closing_brace(bib_str, _match.end()))
+                     for _match in _RE_COMMENT_HEAD.finditer(bib_str)]
+    heads = []
     for _match in _RE_ENTRY_HEAD.finditer(bib_str):
         if _match.group(1).lower() in ("comment", "preamble", "string"):
             continue
         if any(_start < _match.start() < _end
                for _start, _end in comment_spans):
             continue
-        ids.append(_match.group(2))
-    return ids
+        heads.append(_match)
+    spans = []
+    for _idx, _match in enumerate(heads):
+        _next = heads[_idx+1].start() if _idx+1 < len(heads) else len(bib_str)
+        _end = len(bib_str[:_next].rstrip())
+        if _match.group("open") == "{":
+            _end = min(_find_closing_brace(bib_str, _match.end("open")), _end)
+        spans.append((_match.group("id"), _match.start(), _end))
+    return spans
 
-def load_bib_file(bib_file, abbr=None, encoding="utf-8"):
+def get_entry_ids(bib_str):
+    """Return the IDs of all entries that start on a new line in a bib
+    string. Unlike a full parser, this does not depend on the content of the
+    entries being valid."""
+    return [_id for _id, _start, _end in get_entry_spans(bib_str)]
+
+def _read_abbr(abbr, encoding="utf-8"):
+    if abbr is None or isinstance(abbr, dict):
+        return abbr
+    return load_abbr(abbr, encoding=encoding)
+
+def parse_bib_string(bib_str, abbr=None, source="<string>",
+                     return_skipped=False):
+    """Parse the content of a bib file. The abbreviations `abbr`, e.g., from
+    `load_abbr`, are expanded in addition to the common strings, without
+    changing the strings of later calls. Entries that cannot be read are
+    listed in a warning, and returned if `return_skipped` is set."""
     logger = logging.getLogger('load_bib_file')
-    if abbr is not None:
-        if os.path.isfile(abbr):
-            abbr = load_abbr(abbr, encoding=encoding)
-        bibdatabase.COMMON_STRINGS.update(abbr)
-    with open(bib_file, encoding=encoding) as _bib_file:
-        bib_str = strip_comments(_bib_file.read())
+    bib_str = strip_comments(bib_str)
     parser = BibTexParser(homogenize_fields=True, common_strings=True,
                           ignore_nonstandard_types=False)
     parser.alt_dict.pop("keywords")
+    if abbr is not None:
+        parser.bib_database.strings.update(abbr)
     bib_database = bibtexparser.loads(bib_str, parser=parser)
     skipped = (Counter(get_entry_ids(bib_str))
                - Counter([x[KEY_ID] for x in bib_database.entries]))
@@ -93,21 +113,36 @@ def load_bib_file(bib_file, abbr=None, encoding="utf-8"):
         logger.warning("Could not read %d entries from %s. They are NOT "
                        "included in the result. Check them for syntax "
                        "errors, e.g., a missing comma between fields: %s",
-                       sum(skipped.values()), bib_file,
+                       sum(skipped.values()), source,
                        ", ".join(skipped.elements()))
+    if return_skipped:
+        return bib_database, list(skipped.elements())
     return bib_database
 
+def load_bib_file(bib_file, abbr=None, encoding="utf-8"):
+    abbr = _read_abbr(abbr, encoding=encoding)
+    with open(bib_file, encoding=encoding) as _bib_file:
+        bib_str = _bib_file.read()
+    return parse_bib_string(bib_str, abbr=abbr, source=bib_file)
+
+
+def get_bib_writer(order_entries_by=(KEY_ID,)):
+    writer = BibTexWriter()
+    writer.order_entries_by = order_entries_by
+    writer.add_trailing_comma = True
+    writer.indent = "\t"  # "  "
+    return writer
+
+def format_bib_entries(entries, order_entries_by=(KEY_ID,)):
+    """Return the content of a bib file with the given entries."""
+    clean_database = BibDatabase()
+    clean_database.entries = entries
+    return get_bib_writer(order_entries_by).write(clean_database)
 
 def write_bib_database(entries, out_file, encoding="utf-8",
                        order_entries_by=(KEY_ID,)):
-    clean_database = BibDatabase()
-    clean_database.entries = entries
     with open(out_file, 'w', encoding=encoding) as _out_file:
-        writer = BibTexWriter()
-        writer.order_entries_by = order_entries_by
-        writer.add_trailing_comma = True
-        writer.indent = "\t"  # "  "
-        _out_file.write(writer.write(clean_database))
+        _out_file.write(format_bib_entries(entries, order_entries_by))
 
 def getnames(names):
     """This function is a slight modification of the function from bibtexparser

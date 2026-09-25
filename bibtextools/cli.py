@@ -9,15 +9,7 @@ from .combine_bib_files import combine_bib_files_main
 from .filter_bib_file import filter_cited_main
 from .modernize_bib_file import modernize_bib_main
 from .util import write_bib_database
-
-DEFAULT_REMOVE = ["abstract", "annote",
-                  "bdsk-url-1",
-                  #"comments", "comment",
-                  "date-added", "date-modified", 
-                  "file",
-                  #"keyword", "keywords", 
-                  "owner",
-                  "timestamp"]
+from .const import DEFAULT_REMOVE
 
 
 def print_version(ctx, param, value):

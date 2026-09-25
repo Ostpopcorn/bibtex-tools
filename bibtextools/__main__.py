@@ -7,15 +7,8 @@ from .clean_bib_file import clean_bib_file_main
 from .combine_bib_files import combine_bib_files_main
 from .filter_bib_file import filter_cited_main
 from .util import write_bib_database
+from .const import DEFAULT_REMOVE
 
-DEFAULT_REMOVE = ["abstract", "annote",
-                  "bdsk-url-1",
-                  #"comments", "comment",
-                  "date-added", "date-modified", 
-                  "file",
-                  #"keyword", "keywords", 
-                  "owner",
-                  "timestamp"]
 
 def add_duplicate_arguments(parser):
     parser.add_argument("--remove-duplicates", action="store_true",
