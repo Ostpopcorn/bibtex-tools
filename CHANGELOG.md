@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 ### Added
+- Add a web app, which runs all commands in the browser with a live preview
+  of the result next to the original. It can be built with `web/build.py` and
+  is published with GitHub Pages.
+- Add `pipeline` module, which runs the steps of all commands at once on the
+  content of bib files, without asking for input. It keeps track of where each
+  entry comes from and which fields changed.
+- Add `util.parse_bib_string`, `util.parse_abbr_string`,
+  `util.format_bib_entries`, and `util.get_entry_spans`, which work on strings
+  instead of files.
+- Add a `resolver` argument to `remove_duplicate_entries`, a function that
+  decides which entry of a pair of duplicate entries to remove.
+- Add `modernize_bib_file.modernize_entry`,
+  `filter_bib_file.filter_cited_entries`, and
+  `filter_bib_file.parse_bbl_keys`.
 - In the removal of duplicate entries, typing `0` will continue the process
   without deletig any of the two entries. A skipped pair is not asked about
   again.
@@ -15,6 +29,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   cited entries refer to, e.g., via `crossref` or `xdata`, are kept as well.
 
 ### Changed
+- Move `DEFAULT_REMOVE` from the command line modules to `const`.
+- Finding duplicate entries is several times faster for large bib files. The
+  duplicates are found only once instead of after every removed entry, and
+  titles are compared with a quick upper bound of their similarity first.
 - When renaming duplicate IDs in `clean` and `combine`, the first entry keeps
   its ID, e.g., `key` and `key:b` instead of `key:a` and `key:b`. BibTeX and
   biber use the first entry as well, so citations of `key` keep working. New
@@ -30,6 +48,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- Abbreviations from an abbreviation file (`clean -a`) are no longer added to
+  the global strings of bibtexparser, where they were used for all bib files
+  that were loaded later.
 - Invalid input in the interactive prompt for removing duplicate entries (in
   all commands), e.g., `3`, no longer crashes the program. The prompt is
   repeated instead.
