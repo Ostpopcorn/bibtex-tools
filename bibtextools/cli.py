@@ -41,7 +41,7 @@ def main(ctx, output, verbose):
 @click.argument("bib_file", required=True, type=click.Path(exists=True))
 @click.option("-r", "--remove_fields", multiple=True, default=DEFAULT_REMOVE)
 @click.option("--replace_ids", is_flag=True, default=False)
-@click.option("--remove-duplicates/--no-remove-duplicates", default=True)
+@click.option("--remove-duplicates", is_flag=True, default=False)
 @click.option("-i", "--interactive", is_flag=True, default=False)
 @click.option("--arxiv", is_flag=True, default=False)
 @click.option("--shield_title", is_flag=True, default=False)
@@ -66,7 +66,7 @@ def modernize(ctx, bib_file, remove_fields, replace_ids, remove_duplicates,
 @click.option("-a", "--abbr_file", type=click.Path(exists=True, dir_okay=False))
 @click.option("-r", "--remove_fields", multiple=True, default=DEFAULT_REMOVE)
 @click.option("-u", "--replace_unicode", is_flag=True)
-@click.option("--remove-duplicates/--no-remove-duplicates", default=True)
+@click.option("--remove-duplicates", is_flag=True, default=False)
 @click.option("-i", "--interactive", is_flag=True, default=False)
 def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode,
           remove_duplicates, interactive):
@@ -84,7 +84,7 @@ def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode,
 @click.argument("bib_file", required=True, type=click.Path(exists=True), nargs=-1)
 @click.option("--allow_duplicates", is_flag=True, default=False)
 @click.option("--replace_ids", is_flag=True, default=False)
-@click.option("--remove-duplicates/--no-remove-duplicates", default=True)
+@click.option("--remove-duplicates", is_flag=True, default=False)
 @click.option("-i", "--interactive", is_flag=True, default=False)
 def combine(ctx, bib_file, allow_duplicates, replace_ids, remove_duplicates,
             interactive):

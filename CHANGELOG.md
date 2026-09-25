@@ -17,15 +17,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   biber use the first entry as well, so citations of `key` keep working. New
   IDs no longer collide with existing ones, and the renamed IDs are shown as a
   warning.
-- Replace the `--force` option of `clean`, `modernize`, and `combine` by
-  `--remove-duplicates` (default) and `--no-remove-duplicates`. Duplicate
-  entries are now removed automatically by default, keeping the entry with
-  more fields of each pair. The new `-i`/`--interactive` option asks for each
-  pair instead, which was the previous default. `--no-remove-duplicates`
-  skips the duplicate check and keeps all entries.
+- Duplicate entries are no longer removed by default in `clean`, `modernize`,
+  and `combine`, so entries are only removed when this is intended. The
+  `--force` option is replaced by `--remove-duplicates`, which removes the
+  entry with less fields of each pair, and `-i`/`--interactive`, which asks for
+  each pair (the previous default).
 - The `force` argument of `remove_duplicate_entries` is replaced by
   `interactive` (default `False`), and the `force` argument of the main
-  functions by `remove_duplicates` (default `True`) and `interactive`.
+  functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
 - Invalid input in the interactive prompt for removing duplicate entries (in

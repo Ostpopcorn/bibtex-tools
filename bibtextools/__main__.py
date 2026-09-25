@@ -17,14 +17,10 @@ DEFAULT_REMOVE = ["abstract", "annote",
                   "timestamp"]
 
 def add_duplicate_arguments(parser):
-    parser.add_argument("--remove-duplicates", dest="remove_duplicates",
-                        action="store_true", default=True,
-                        help="Remove duplicate entries, i.e., the same work with different IDs. Of each pair, the entry with less fields is removed. This is the default.")
-    parser.add_argument("--no-remove-duplicates", dest="remove_duplicates",
-                        action="store_false",
-                        help="Do not check for duplicate entries and keep all entries.")
+    parser.add_argument("--remove-duplicates", action="store_true",
+                        help="Remove duplicate entries, i.e., the same work stored more than once. Of each pair, the entry with less fields is removed.")
     parser.add_argument("-i", "--interactive", action="store_true",
-                        help="Ask which entry of each pair of duplicate entries to remove, instead of removing the entry with less fields.")
+                        help="Ask which entry of each pair of duplicate entries to remove. Implies --remove-duplicates.")
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(prog="bibtex-tools")
@@ -66,7 +62,7 @@ def get_arg_parser():
     parser_combine = subparsers.add_parser("combine", help="Combine multiple bib files into a single one.")
     #parser_combine.add_argument("-a", "--abbr_file", help="Bib-file that contains abbreviations")
     parser_combine.add_argument("-v", "--verbose", action="count", default=0, help="Verbosity level. -v is info and -vv is debug")
-    parser_combine.add_argument("--allow_duplicates", action="store_true", help="If this option is passed, the IDs of the bib items remain untouched. This leads to duplicate IDs if the same key is used in multiple files. Note that duplicate entries (by content) will still be removed, unless --no-remove-duplicates is passed.")
+    parser_combine.add_argument("--allow_duplicates", action="store_true", help="If this option is passed, the IDs of the bib items remain untouched. This leads to duplicate IDs if the same key is used in multiple files. Duplicate entries (by content) are only removed with --remove-duplicates.")
     add_duplicate_arguments(parser_combine)
     parser_combine.add_argument("-o", "--output", help="Output file for the new bib entries. If not specified, it will be the input file with a 'clean-' prefix.")
     parser_combine.add_argument("bib_files", nargs="+")

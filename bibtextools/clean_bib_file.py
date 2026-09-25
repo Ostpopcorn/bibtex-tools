@@ -164,8 +164,7 @@ def remove_duplicate_entries(entries, interactive=False, verbose=logging.WARN):
         logger.warning("Found %d duplicate pairs", len(duplicates))
         if not interactive:
             logger.warning("Removing the entry with less fields of each pair. "
-                           "Use --interactive to choose, or "
-                           "--no-remove-duplicates to keep all entries.")
+                           "Use --interactive to choose which entry to remove.")
     else:
         logger.info("No duplicate citations found.")
     _skipped = []
@@ -223,7 +222,7 @@ def replace_unicode_in_entry(entry):
 replace_unicode_in_database = cleaning_function()(replace_unicode_in_entry)
 
 def clean_bib_file_main(bib_file, abbr_file=None, remove_fields=None,
-                        encoding="utf-8", remove_duplicates=True,
+                        encoding="utf-8", remove_duplicates=False,
                         interactive=False, verbose=logging.WARN,
                         replace_unicode=False):
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
@@ -234,7 +233,7 @@ def clean_bib_file_main(bib_file, abbr_file=None, remove_fields=None,
         logger.info("Using the following abbreviation file: %s", abbr_file)
     bib_database = load_bib_file(bib_file, abbr=abbr_file, encoding=encoding)
     logger.debug("Loaded file and replaced abbreviation strings")
-    if remove_duplicates:
+    if remove_duplicates or interactive:
         bib_database = remove_duplicate_entries(bib_database,
                                                 interactive=interactive,
                                                 verbose=verbose)
