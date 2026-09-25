@@ -15,6 +15,11 @@ All commands are also available as a web app, which shows the original file
 next to the result with the current settings, before you download it:
 [ostpopcorn.github.io/bibtex-tool](https://ostpopcorn.github.io/bibtex-tool/)
 
+The web app is a web version of bibtex-tools by Karl-Ludwig Besser
+([klb2/bibtex-tools](https://github.com/klb2/bibtex-tools)), whose code does
+all the work.  It was made by Ostpopcorn, and its code is in
+[Ostpopcorn/bibtex-tools](https://github.com/Ostpopcorn/bibtex-tools).
+
 ![Screenshot of the web app](web/screenshot.png)
 
 * Switch the steps of all commands on and off at the top: `filter-cited` (with
