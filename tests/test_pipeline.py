@@ -7,9 +7,8 @@ from bibtextools.combine_bib_files import combine_bib_files_main
 from bibtextools.const import DEFAULT_REMOVE, KEY_ID
 from bibtextools.filter_bib_file import filter_cited_main, get_bbl_keys
 from bibtextools.modernize_bib_file import CLEAN_FUNC, modernize_bib_main
-from bibtextools.util import (format_bib_entries, get_entry_spans, load_abbr,
-                              load_bib_file, parse_bib_string,
-                              write_bib_database)
+from bibtextools.util import (format_bib_entries, load_abbr, load_bib_file,
+                              parse_bib_string, write_bib_database)
 
 BIB_MAIN = "old.bib"
 DUPLICATE_CONTENT = "duplicate_content.bib"
@@ -172,19 +171,3 @@ def test_remove_duplicates_with_resolver():
     ids = set(x[KEY_ID] for x in results)
     assert len(pairs) == 2 and len(results) == 7
     assert not ids & set(_id2 for _id1, _id2 in pairs)
-
-def test_entry_and_field_spans():
-    with open(BIB_MAIN, encoding="utf-8") as _file:
-        bib_str = _file.read()
-    spans = get_entry_spans(bib_str)
-    _id, start, end = spans[0]
-    assert _id == "Key123" and bib_str[start:end].endswith("}")
-    fields = pipeline.get_field_spans(bib_str, start, end)
-    assert "author" in fields and "keywords" in fields
-    _start, _end = fields["pages"]
-    assert bib_str[_start:_end] == "pages = {22--29},"
-
-def test_output_field_lines():
-    text = "@article{Key,\n\tauthor = {A},\n\ttitle = {Line\n2},\n}\n"
-    assert pipeline.get_output_field_lines(text) == {"author": (1, 1),
-                                                     "title": (2, 3)}

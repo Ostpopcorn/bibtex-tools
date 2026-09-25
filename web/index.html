@@ -15,7 +15,26 @@
       <img src="favicon.svg" alt="" width="28" height="28">
       <span>BibTeX Tools</span>
     </div>
-    <div class="files" id="files" aria-label="Opened bib files"></div>
+    <div class="sources">
+      <div class="files" id="files" aria-label="Opened bib files"></div>
+      <div class="add-wrap" id="add-wrap">
+        <button class="chip add" id="add-button" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu" title="Add another bib file to combine them">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          Add
+        </button>
+        <div class="menu" id="add-menu" role="menu" hidden>
+          <button role="menuitem" data-pick="bib">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+            <span><strong>Upload .bib files</strong><small>Combine them with the open files</small></span>
+          </button>
+          <button role="menuitem" data-paste>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
+            <span><strong>Paste BibTeX</strong><small>E.g., copied from Google Scholar</small></span>
+          </button>
+          <p class="menu-hint">You can also drop files on the page or paste with <kbd class="paste-key">Ctrl+V</kbd>.</p>
+        </div>
+      </div>
+    </div>
     <div class="actions">
       <button class="btn ghost icon-btn" id="theme" title="Switch between light and dark mode" aria-label="Switch between light and dark mode">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>

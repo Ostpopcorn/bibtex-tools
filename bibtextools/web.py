@@ -13,15 +13,12 @@ from bibtexparser.bibdatabase import UndefinedString
 from .const import DEFAULT_REMOVE, KEY_CATEGORY, KEY_EPRINT, KEY_ID
 from .filter_bib_file import parse_bbl_keys
 from .modernize_bib_file import CLEAN_FUNC
-from .pipeline import (DUPLICATES_KEEP, Pipeline, PipelineOptions,
-                       get_field_spans, get_output_field_lines)
-from .util import format_bib_entries, get_entry_spans, parse_abbr_string
+from .pipeline import DUPLICATES_KEEP, Pipeline, PipelineOptions
+from .util import (format_bib_entries, get_entry_spans, get_field_spans,
+                   parse_abbr_string)
 
 _PIPELINE = Pipeline()
 _ABBR_CACHE = {}
-# Matches a field whose value is an abbreviation (@string), which is expanded
-_RE_MACRO_VALUE = re.compile(r'^[^=]*=\s*(?:[A-Za-z_][^\s,{}"#]*\s*,?\s*$|.*\s#\s)',
-                             re.DOTALL)
 
 # The web app shows the warnings of the pipeline instead of the console
 logging.getLogger("load_bib_file").addHandler(logging.NullHandler())
@@ -59,21 +56,31 @@ class _Lines:
         return bisect.bisect_left(self.newlines, idx)
 
 
+def _normalize_value(value):
+    """The value of a field as it is shown, without the braces or quotes
+    around it and with single spaces."""
+    if len(value) >= 2 and value[0] + value[-1] in ("{}", '""'):
+        value = value[1:-1]
+    return " ".join(value.split())
+
+def _locate_fields(text, start, end, line):
+    """Return the lines, the value, and the written name of each field of the
+    entry between `start` and `end`."""
+    fields = {}
+    for _key, (_start, _end, _vstart, _vend) in get_field_spans(
+            text, start, end).items():
+        fields[_key] = {"lines": [line(_start), line(_end-1)],
+                        "value": _normalize_value(text[_vstart:_vend]),
+                        "name": text[_start:_vstart].split("=")[0].strip().lower()}
+    return fields
+
 @functools.lru_cache(maxsize=16)
 def _locate_entries(text):
     """Return the lines of the entries and their fields in a bib string."""
     line = _Lines(text)
-    entries = []
-    for _id, _start, _end in get_entry_spans(text):
-        _fields = get_field_spans(text, _start, _end)
-        entries.append({
-            "id": _id,
-            "lines": [line(_start), line(_end-1)],
-            "fields": {k: [line(v[0]), line(v[1]-1)]
-                       for k, v in _fields.items()},
-            "macros": sorted(k for k, v in _fields.items()
-                             if _RE_MACRO_VALUE.match(text[v[0]:v[1]]))})
-    return entries
+    return [{"id": _id, "lines": [line(_start), line(_end-1)],
+             "fields": _locate_fields(text, _start, _end, line)}
+            for _id, _start, _end in get_entry_spans(text)]
 
 def _source_entries(source_idx, text, originals):
     """Locate the entries of a source in its text and match them to the read
@@ -88,6 +95,33 @@ def _source_entries(source_idx, text, originals):
         entries.append(dict(_entry, origin=(_origin_str(_origins.pop(0))
                                             if _origins else None)))
     return entries
+
+def _output_entry(out, original, located):
+    """An entry of the output for the web app. A field is changed if its
+    value or name is shown differently than in the original, e.g., an
+    expanded abbreviation (`@string`). Differences in whitespace and in
+    braces or quotes around values are not changes."""
+    fields = _locate_fields(out.text, 0, len(out.text), _Lines(out.text))
+    if located is None:
+        # the entry could not be found in the text of the original
+        added, changed, removed = out.added, out.changed, out.removed
+    else:
+        before = located["fields"]
+        added = set(fields) - set(before)
+        removed = set(before) - set(fields)
+        changed = set(_key for _key in set(fields) & set(before)
+                      if fields[_key]["value"] != before[_key]["value"]
+                      or before[_key]["name"] != _key)
+    return {"origin": _origin_str(out.origin),
+            "id": out.entry[KEY_ID],
+            "original_id": original[KEY_ID],
+            "text": out.text,
+            "line": out.line,
+            "id_changed": out.id_changed,
+            "added": sorted(added),
+            "changed": sorted(changed),
+            "removed": sorted(removed),
+            "fields": {k: v["lines"] for k, v in fields.items()}}
 
 
 def run(request_json):
@@ -145,24 +179,19 @@ def _run(request):
     sources_out = [{"name": _name,
                     "entries": _source_entries(_idx, _text, result.originals)}
                    for _idx, (_name, _text) in enumerate(sources)]
-    # Fields with abbreviations are changed, as they are written expanded
-    macros = {_entry["origin"]: set(_entry.pop("macros"))
-              for _source in sources_out for _entry in _source["entries"]}
+    located = {_entry["origin"]: _entry for _source in sources_out
+               for _entry in _source["entries"] if _entry["origin"]}
+    entries = [_output_entry(_out, result.originals[_out.origin],
+                             located.get(_origin_str(_out.origin)))
+               for _out in result.entries]
+    # The web app only needs the lines of the fields
+    for _source in sources_out:
+        _source["entries"] = [dict(_entry, fields={
+            k: v["lines"] for k, v in _entry["fields"].items()})
+            for _entry in _source["entries"]]
     return {
         "text": result.text,
-        "entries": [{"origin": _origin_str(_out.origin),
-                     "id": _out.entry[KEY_ID],
-                     "original_id": result.originals[_out.origin][KEY_ID],
-                     "text": _out.text,
-                     "line": _out.line,
-                     "id_changed": _out.id_changed,
-                     "added": sorted(_out.added),
-                     "changed": sorted(_out.changed | (
-                         macros.get(_origin_str(_out.origin), set())
-                         & set(_out.entry))),
-                     "removed": sorted(_out.removed),
-                     "fields": get_output_field_lines(_out.text)}
-                    for _out in result.entries],
+        "entries": entries,
         "sources": sources_out,
         "removed": {_origin_str(k): v for k, v in result.removed.items()},
         "duplicate_pairs": (None if result.duplicate_pairs is None else
