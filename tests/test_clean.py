@@ -127,13 +127,13 @@ def test_remove_duplicate_entries_number_automatic():
     assert ((len(bib_database.get_entry_list()) == 9) and
             (len(results) == 7) and len(_entry) == 11)
 
-def test_clean_main_remove_duplicates():
-    assert len(clean_bib_file.clean_bib_file_main(DUPLICATE_CONTENT)) == 7
+def test_clean_main_keep_duplicates_by_default():
+    assert len(clean_bib_file.clean_bib_file_main(DUPLICATE_CONTENT)) == 9
 
-def test_clean_main_keep_duplicates():
+def test_clean_main_remove_duplicates():
     results = clean_bib_file.clean_bib_file_main(DUPLICATE_CONTENT,
-                                                 remove_duplicates=False)
-    assert len(results) == 9
+                                                 remove_duplicates=True)
+    assert len(results) == 7
 
 def test_remove_duplicate_entries_interactive_empty_input(monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _prompt="": "")

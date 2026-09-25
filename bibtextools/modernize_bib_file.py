@@ -146,7 +146,7 @@ def abbreviate_journalname(entry):
     return entry
 
 def modernize_bib_main(bib_file, remove_fields=None, replace_ids=False,
-                       remove_duplicates=True, interactive=False,
+                       remove_duplicates=False, interactive=False,
                        arxiv=False, iso4=False,
                        verbose=logging.WARN, encoding='utf-8', **kwargs):
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
@@ -160,7 +160,7 @@ def modernize_bib_main(bib_file, remove_fields=None, replace_ids=False,
 
     bib_database = load_bib_file(bib_file, encoding=encoding).get_entry_list()
     logger.debug("Successfully loaded bib file")
-    if remove_duplicates:
+    if remove_duplicates or interactive:
         bib_database = remove_duplicate_entries(bib_database,
                                                 interactive=interactive,
                                                 verbose=verbose)

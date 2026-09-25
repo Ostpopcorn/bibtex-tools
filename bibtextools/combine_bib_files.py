@@ -17,7 +17,7 @@ def combine_bib_entries(bib_entries):
 
 
 def combine_bib_files_main(bib_files, allow_duplicates=False,
-                           remove_duplicates=True, interactive=False,
+                           remove_duplicates=False, interactive=False,
                            replace_ids=False, verbose=logging.WARN,
                            encoding='utf-8'):
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
@@ -29,7 +29,7 @@ def combine_bib_files_main(bib_files, allow_duplicates=False,
     bib_databases = [load_bib_file(_bib_file, abbr=None, encoding=encoding)
                      for _bib_file in bib_files]
     combined_entries = combine_bib_entries(bib_databases)
-    if remove_duplicates:
+    if remove_duplicates or interactive:
         combined_entries = remove_duplicate_entries(combined_entries,
                                                     interactive=interactive,
                                                     verbose=verbose)

@@ -24,8 +24,7 @@ def test_main_modern(tmpdir, bib_file=BIB_MAIN):
     assert len(bib_database.get_entry_list()) == 6
 
 @pytest.mark.parametrize("options,num_entries",
-                         [([], 7), (["--remove-duplicates"], 7),
-                          (["--no-remove-duplicates"], 9)])
+                         [([], 9), (["--remove-duplicates"], 7)])
 def test_main_clean_remove_duplicates(tmpdir, options, num_entries):
     out_file = os.path.join(tmpdir, "clean.bib")
     sys.argv = [sys.argv[0], 'clean', *options, DUPLICATE_CONTENT, '-o', out_file]
@@ -36,14 +35,14 @@ def test_main_clean_remove_duplicates(tmpdir, options, num_entries):
     assert len(bib_database.get_entry_list()) == num_entries
 
 def test_main_clean_interactive(tmpdir, monkeypatch):
-    monkeypatch.setattr("builtins.input", lambda _prompt="": "0")
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "")
     out_file = os.path.join(tmpdir, "clean.bib")
     sys.argv = [sys.argv[0], 'clean', '-i', DUPLICATE_CONTENT, '-o', out_file]
     main()
     with open(out_file, encoding="utf-8") as _bib_file:
         parser = BibTexParser(homogenize_fields=True, common_strings=True)
         bib_database = bibtexparser.load(_bib_file, parser=parser)
-    assert len(bib_database.get_entry_list()) == 9
+    assert len(bib_database.get_entry_list()) == 7
 
 def test_main_force_removed():
     sys.argv = [sys.argv[0], 'clean', '--force', DUPLICATE_CONTENT]
