@@ -34,6 +34,7 @@ To run the web app locally, build it and serve it on http://localhost:8000 with
 ```bash
 python3 web/build.py --serve
 ```
+or with `uv run web/build.py --serve` if you use [uv](https://docs.astral.sh/uv/).
 The workflow `.github/workflows/web.yml` publishes the web app with GitHub
 Pages for every push to `master`.  In the settings of the repository, select
 _GitHub Actions_ as the source under _Pages_ once.
