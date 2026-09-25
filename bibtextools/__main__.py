@@ -16,6 +16,16 @@ DEFAULT_REMOVE = ["abstract", "annote",
                   "owner",
                   "timestamp"]
 
+def add_duplicate_arguments(parser):
+    parser.add_argument("--remove-duplicates", dest="remove_duplicates",
+                        action="store_true", default=True,
+                        help="Remove duplicate entries, i.e., the same work with different IDs. Of each pair, the entry with less fields is removed. This is the default.")
+    parser.add_argument("--no-remove-duplicates", dest="remove_duplicates",
+                        action="store_false",
+                        help="Do not check for duplicate entries and keep all entries.")
+    parser.add_argument("-i", "--interactive", action="store_true",
+                        help="Ask which entry of each pair of duplicate entries to remove, instead of removing the entry with less fields.")
+
 def get_arg_parser():
     parser = argparse.ArgumentParser(prog="bibtex-tools")
     subparsers = parser.add_subparsers(help="Possible sub commands", 
@@ -36,7 +46,7 @@ def get_arg_parser():
                         help="If this is set, the title field will be surrounded by curly brackets.")
     parser_modern.add_argument("--iso4", action="store_true",
                         help="If this is set, the journal titles will be abbreviated according to the ISO4 standard.")
-    parser_modern.add_argument("--force", action="store_true", help="Force the automatic removal of duplicate entries (the shorter one will be removed) and skip the interactive prompt.")
+    add_duplicate_arguments(parser_modern)
     parser_modern.add_argument("-v", "--verbose", action="count", default=0, help="Verbosity level. -v is info and -vv is debug")
     parser_modern.add_argument("-o", "--output", help="Output file for the new bib entries. If not specified, it will be the input file with a 'clean-' prefix.")
     parser_modern.add_argument("bib_file")
@@ -48,7 +58,7 @@ def get_arg_parser():
                         default=DEFAULT_REMOVE,
                         help="Name of fields that should be removed for the clean bib file. By default, this is 'abstract', 'annote', 'file', 'keyword'. Leave empty to not delete any fields")
     parser_clean.add_argument("-u", "--replace_unicode", action="store_true", help='Replace unicode characters by the LaTeX syntax, e.g., ä --> {\\"a}')
-    parser_clean.add_argument("--force", action="store_true", help="Force the automatic removal of duplicate entries (the shorter one will be removed) and skip the interactive prompt.")
+    add_duplicate_arguments(parser_clean)
     parser_clean.add_argument("-v", "--verbose", action="count", default=0, help="Verbosity level. -v is info and -vv is debug")
     parser_clean.add_argument("-o", "--output", help="Output file for the new bib entries. If not specified, it will be the input file with a 'clean-' prefix.")
     parser_clean.add_argument("bib_file")
@@ -56,8 +66,8 @@ def get_arg_parser():
     parser_combine = subparsers.add_parser("combine", help="Combine multiple bib files into a single one.")
     #parser_combine.add_argument("-a", "--abbr_file", help="Bib-file that contains abbreviations")
     parser_combine.add_argument("-v", "--verbose", action="count", default=0, help="Verbosity level. -v is info and -vv is debug")
-    parser_combine.add_argument("--allow_duplicates", action="store_true", help="If this option is passed, the IDs of the bib items remain untouched. This leads to duplicate IDs if the same key is used in multiple files. Note that duplicate entries (by content) will still be removed.")
-    parser_combine.add_argument("--force", action="store_true", help="Force the automatic removal of duplicate entries with the same citation (the shorter one will be removed) and skip the interactive prompt.")
+    parser_combine.add_argument("--allow_duplicates", action="store_true", help="If this option is passed, the IDs of the bib items remain untouched. This leads to duplicate IDs if the same key is used in multiple files. Note that duplicate entries (by content) will still be removed, unless --no-remove-duplicates is passed.")
+    add_duplicate_arguments(parser_combine)
     parser_combine.add_argument("-o", "--output", help="Output file for the new bib entries. If not specified, it will be the input file with a 'clean-' prefix.")
     parser_combine.add_argument("bib_files", nargs="+")
     return parser

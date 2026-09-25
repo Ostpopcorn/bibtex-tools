@@ -13,6 +13,12 @@ def test_main_modern(bib_file=BIB_MAIN):
     clean_entries = modernize_bib_file.modernize_bib_main(bib_file)
     assert len(clean_entries) == 6
 
+@pytest.mark.parametrize("remove_duplicates,num_entries", [(True, 7), (False, 9)])
+def test_main_modern_remove_duplicates(remove_duplicates, num_entries):
+    clean_entries = modernize_bib_file.modernize_bib_main(
+        "duplicate_content.bib", remove_duplicates=remove_duplicates)
+    assert len(clean_entries) == num_entries
+
 def test_replace_id(bib_file=BIB_MAIN):
     clean_entries = modernize_bib_file.modernize_bib_main(bib_file, replace_ids=True)
     expected_keys = set(["Name2010title", "MultipleWordName2010title",

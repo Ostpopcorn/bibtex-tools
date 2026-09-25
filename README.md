@@ -21,6 +21,15 @@ Right now, the following functions are available
 Use `bibtex-tools --help` to list the possible commands and `bibtex-tools
 <command> --help` to list the possible options for the sub-command `<command>`.
 
+### Duplicate Entries
+The commands `modernize`, `clean`, and `combine` remove duplicate entries,
+i.e., the same work stored more than once, which are detected by similar
+titles, authors, and other fields.  By default, the entry with less fields of
+each pair is removed
+automatically and a warning lists the removed entries.  Use `--interactive`
+(`-i`) to choose which entry to remove for each pair, or
+`--no-remove-duplicates` to keep all entries.
+
 
 ### Modernizing Bib Files
 The command `bibtex-tools modernize` allows to update the format of several
