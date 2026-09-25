@@ -27,10 +27,9 @@ def get_bibitem_keys(content):
             keys.add(_key.group(1))
     return keys
 
-def get_bbl_keys(bbl_file, encoding="utf-8"):
-    """Extract citation keys from a .bbl file, auto-detecting the backend."""
-    with open(bbl_file, encoding=encoding) as _bbl_file:
-        content = _bbl_file.read()
+def parse_bbl_keys(content):
+    """Extract citation keys from the content of a .bbl file, auto-detecting
+    the backend."""
     biblatex_keys = set(re.findall(r"\\entry\{([^}]+)\}", content))
     bibtex_keys = get_bibitem_keys(content)
     if biblatex_keys and not bibtex_keys:
@@ -38,6 +37,11 @@ def get_bbl_keys(bbl_file, encoding="utf-8"):
     if bibtex_keys and not biblatex_keys:
         return bibtex_keys, "bibtex"
     return biblatex_keys | bibtex_keys, "unknown"
+
+def get_bbl_keys(bbl_file, encoding="utf-8"):
+    """Extract citation keys from a .bbl file, auto-detecting the backend."""
+    with open(bbl_file, encoding=encoding) as _bbl_file:
+        return parse_bbl_keys(_bbl_file.read())
 
 
 def get_referenced_ids(entry):
@@ -64,6 +68,12 @@ def add_referenced_ids(ids, entries):
                 stack.append(_ref)
     return ids
 
+def filter_cited_entries(entries, cited_keys):
+    """Return the entries that are cited and the entries that they refer to,
+    e.g., with crossref, in their original order."""
+    keep_ids = add_referenced_ids(cited_keys, entries)
+    return [entry for entry in entries if entry.get(KEY_ID) in keep_ids]
+
 
 def filter_cited_main(bib_file, bbl_file, verbose=logging.WARN, encoding="utf-8"):
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
@@ -76,9 +86,9 @@ def filter_cited_main(bib_file, bbl_file, verbose=logging.WARN, encoding="utf-8"
     logger.info("Detected bbl backend: %s", backend)
     logger.info("Found %d cited keys in bbl file", len(cited_keys))
     bib_ids = set(entry.get(KEY_ID) for entry in entries)
-    keep_ids = add_referenced_ids(cited_keys, entries)
+    kept = filter_cited_entries(entries, cited_keys)
+    keep_ids = set(entry.get(KEY_ID) for entry in kept)
     referenced = keep_ids - cited_keys
-    kept = [entry for entry in entries if entry.get(KEY_ID) in keep_ids]
     unused = bib_ids - keep_ids
     missing = cited_keys - bib_ids
     logger.info("Keeping %d of %d entries", len(kept), len(entries))

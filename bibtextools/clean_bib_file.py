@@ -103,12 +103,15 @@ def _have_different_identifiers(entry1, entry2):
 def _get_year(entry):
     return entry.get(KEY_YEAR, entry.get(KEY_DATE, "")[:4])
 
-@cleaning_function(on_all_entries=True)
-def get_duplicate_entries(entries):
+def get_duplicate_index_pairs(entries):
+    """Return the index pairs `(i, j)` with `i < j` of all entries that are
+    duplicates, i.e., the same work stored more than once. Whether two
+    entries are duplicates does not depend on the other entries."""
     seq_matcher_title = SequenceMatcher()
     seq_matcher_authors = SequenceMatcher()
     duplicates = []
-    for _entry1, _entry2 in itertools.combinations(entries, 2):
+    for _idx1, _idx2 in itertools.combinations(range(len(entries)), 2):
+        _entry1, _entry2 = entries[_idx1], entries[_idx2]
         if _entry1[KEY_ENTRYTYPE] != _entry2[KEY_ENTRYTYPE]:
             continue
         _names1 = _entry1.get(KEY_AUTHOR, _entry1.get(KEY_EDITOR))
@@ -152,51 +155,78 @@ def get_duplicate_entries(entries):
             _same_misc = _get_year(_entry1) == _get_year(_entry2)
         if not _same_misc:
             continue
-        duplicates.append((_entry1, _entry2))
+        duplicates.append((_idx1, _idx2))
     return duplicates
 
 @cleaning_function(on_all_entries=True)
-def remove_duplicate_entries(entries, interactive=False, verbose=logging.WARN):
+def get_duplicate_entries(entries):
+    return [(entries[_idx1], entries[_idx2])
+            for _idx1, _idx2 in get_duplicate_index_pairs(entries)]
+
+def remove_shorter_duplicate(entry1, entry2):
+    """Resolver for `remove_duplicate_entries` that removes the entry with
+    less fields."""
+    return sorted((entry1, entry2), key=len)[0]
+
+def ask_which_duplicate_to_remove(entry1, entry2):
+    """Resolver for `remove_duplicate_entries` that asks on the command line
+    which entry to remove. Returns `None` to keep both entries."""
+    logger = logging.getLogger('remove_duplicate_entries')
+    logger.warning("Pair of duplicate entries:")
+    logger.warning("Entry 1:")
+    pprint(entry1)
+    logger.warning("Entry 2:")
+    pprint(entry2)
+    _answer = input("Which entry do you want to REMOVE? Type 1 or 2 and hit enter. Simply hitting enter will remove the shorter entry. Type 0 for not deleting any entry.\n").strip()
+    while _answer not in ("", "0", "1", "2"):
+        _answer = input("Invalid input. Type 1 or 2 to remove that entry, 0 to keep both, or simply hit enter to remove the shorter entry.\n").strip()
+    if _answer == "0":
+        return None
+    elif _answer:
+        return (entry1, entry2)[int(_answer) - 1]
+    return remove_shorter_duplicate(entry1, entry2)
+
+@cleaning_function(on_all_entries=True)
+def remove_duplicate_entries(entries, interactive=False, verbose=logging.WARN,
+                             resolver=None):
+    """Remove one entry of each pair of duplicate entries. The `resolver`
+    is called with both entries of a pair and returns the one of them to
+    remove, or `None` to keep both. By default, the entry with less fields is
+    removed, or the user is asked if `interactive` is set. Pairs with an
+    already removed entry are skipped."""
     logger = logging.getLogger('remove_duplicate_entries')
     logger.setLevel(verbose)
-    duplicates = get_duplicate_entries(entries)
+    automatic = resolver is None and not interactive
+    if resolver is None:
+        resolver = (ask_which_duplicate_to_remove if interactive
+                    else remove_shorter_duplicate)
+    duplicates = get_duplicate_index_pairs(entries)
     if duplicates:
         logger.warning("Found %d duplicate pairs", len(duplicates))
-        if not interactive:
+        if automatic:
             logger.warning("Removing the entry with less fields of each pair. "
                            "Use --interactive to choose which entry to remove.")
     else:
         logger.info("No duplicate citations found.")
-    _skipped = []
-    while duplicates:
-        #_pair = duplicates[0]
-        _pair = duplicates.pop(0)
-        _shorter_entry, _longer_entry = sorted(_pair, key=len)
-        if not interactive:
-            logger.warning("Removing duplicate entry %s (keeping %s)",
-                           _shorter_entry[KEY_ID], _longer_entry[KEY_ID])
-            entries.remove(_shorter_entry)
+    _removed = set()
+    for _idx1, _idx2 in duplicates:
+        if _idx1 in _removed or _idx2 in _removed:
+            continue
+        _entry1, _entry2 = entries[_idx1], entries[_idx2]
+        _remove = resolver(_entry1, _entry2)
+        if _remove is None:
+            continue
+        if _remove is _entry2:
+            _idx_remove, _keep = _idx2, _entry1
         else:
-            logger.warning("Pair of duplicate entries:")
-            logger.warning("Entry 1:")
-            pprint(_pair[0])
-            logger.warning("Entry 2:")
-            pprint(_pair[1])
-            _answer = input("Which entry do you want to REMOVE? Type 1 or 2 and hit enter. Simply hitting enter will remove the shorter entry. Type 0 for not deleting any entry.\n").strip()
-            while _answer not in ("", "0", "1", "2"):
-                _answer = input("Invalid input. Type 1 or 2 to remove that entry, 0 to keep both, or simply hit enter to remove the shorter entry.\n").strip()
-            if _answer == "0":
-                _skipped.append(_pair)
-                continue
-            elif _answer:
-                entries.remove(_pair[int(_answer) - 1])
-            else:
-                entries.remove(_shorter_entry)
+            _idx_remove, _keep = _idx1, _entry2
+        if automatic:
+            logger.warning("Removing duplicate entry %s (keeping %s)",
+                           entries[_idx_remove][KEY_ID], _keep[KEY_ID])
+        _removed.add(_idx_remove)
         logger.info("Successfully removed duplicate entry.")
-        duplicates = [_p for _p in get_duplicate_entries(entries)
-                      if _p not in _skipped]
-        logger.info("%d duplicate pairs remaining...", len(duplicates))
-    return entries
+    return [_entry for _idx, _entry in enumerate(entries)
+            if _idx not in _removed]
 
 def remove_fields_from_entry(entry, remove_fields=None):
     if remove_fields is None:
