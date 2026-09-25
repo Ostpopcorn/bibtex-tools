@@ -156,6 +156,7 @@ worker.onmessage = ({ data }) => {
     $("#overlay-text").textContent = data.text;
   } else if (data.type === "ready") {
     defaults = data.defaults;
+    $("#about-version").textContent = `bibtextools ${data.version} · Pyodide ${data.pyodide}`;
     state.ready = true;
     setEngine("ready", "Ready");
     applySettingsToUI();
@@ -1135,6 +1136,14 @@ function renderArxivState() {
     label.textContent = `(${known}/${r.eprints.length})`;
   } else label.textContent = "";
 }
+
+/* About */
+
+const aboutDialog = $("#about-dialog");
+$("#about-open").addEventListener("click", () => aboutDialog.showModal());
+aboutDialog.addEventListener("click", (event) => {
+  if (event.target === aboutDialog || event.target.closest("[data-dialog-close]")) aboutDialog.close();
+});
 
 /* Actions */
 
