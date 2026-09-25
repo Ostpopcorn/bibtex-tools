@@ -89,6 +89,76 @@ def get_entry_spans(bib_str):
         spans.append((_match.group("id"), _match.start(), _end))
     return spans
 
+# Field names as the parser uses them, see `parse_bib_string`
+_FIELD_ALIASES = {k: v for k, v in BibTexParser().alt_dict.items()
+                  if k != "keywords"}
+_RE_FIELD_NAME = re.compile(r'[^\s=,{}()"#%]+')
+_RE_BARE_VALUE = re.compile(r'[^\s,#{}()"%]+')
+
+def _skip_space(bib_str, idx, end):
+    """Skip whitespace and `%` comments."""
+    while idx < end:
+        if bib_str[idx].isspace():
+            idx += 1
+        elif bib_str[idx] == "%":
+            _newline = bib_str.find("\n", idx, end)
+            idx = end if _newline < 0 else _newline + 1
+        else:
+            break
+    return idx
+
+def _skip_value_part(bib_str, idx, end):
+    """Return the index after a braced, quoted, or bare value."""
+    if bib_str[idx] == "{":
+        return min(_find_closing_brace(bib_str, idx+1), end)
+    if bib_str[idx] == '"':
+        depth = 0
+        for idx in range(idx+1, end):
+            if bib_str[idx] == '"' and depth == 0:
+                return idx + 1
+            depth += {"{": 1, "}": -1}.get(bib_str[idx], 0)
+        return end
+    _match = _RE_BARE_VALUE.match(bib_str, idx, end)
+    return _match.end() if _match else idx
+
+def get_field_spans(bib_str, start=0, end=None):
+    """Return the fields of the entry between `start` and `end` of a bib
+    string, as name -> (start, end, value start, value end), by the field
+    names that the parser uses. A field spans from its name to the end of
+    its value. Unlike a full parser, this does not depend on the fields being
+    on separate lines, and skips `%` comments between fields."""
+    if end is None:
+        end = len(bib_str)
+    spans = {}
+    _match = _RE_ENTRY_HEAD.match(bib_str, start, end)
+    idx = bib_str.find(",", _match.end("id") if _match else start, end)
+    while 0 <= idx < end:
+        idx = _skip_space(bib_str, idx+1, end)
+        _name = _RE_FIELD_NAME.match(bib_str, idx, end)
+        if not _name:
+            break
+        idx = _skip_space(bib_str, _name.end(), end)
+        if idx >= end or bib_str[idx] != "=":
+            break
+        idx = value_start = value_end = _skip_space(bib_str, idx+1, end)
+        # a value can be a concatenation, e.g., "IEEE " # jnl
+        while idx < end:
+            value_end = _skip_value_part(bib_str, idx, end)
+            if value_end == idx:
+                break
+            idx = _skip_space(bib_str, value_end, end)
+            if idx < end and bib_str[idx] == "#":
+                idx = _skip_space(bib_str, idx+1, end)
+            else:
+                break
+        _key = _name.group().lower()
+        spans[_FIELD_ALIASES.get(_key, _key)] = (_name.start(), value_end,
+                                                 value_start, value_end)
+        idx = _skip_space(bib_str, value_end, end)
+        if idx >= end or bib_str[idx] != ",":
+            break
+    return spans
+
 def get_entry_ids(bib_str):
     """Return the IDs of all entries that start on a new line in a bib
     string. Unlike a full parser, this does not depend on the content of the

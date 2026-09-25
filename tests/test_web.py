@@ -74,3 +74,31 @@ def test_run_arxiv_categories():
     response = _run(request)
     out = next(e for e in response["entries"] if e["id"] == "Besser2020CLpart1")
     assert out["added"] == ["archiveprefix", "primaryclass"]
+
+def _run_text(text, options=None):
+    return _run({"sources": [{"name": "test.bib", "text": text}],
+                 "options": options or {}})
+
+def test_run_highlights_fields_on_one_line():
+    response = _run_text("@misc{Key, title={A}, year=2020, month=jan}\n",
+                         {"clean_fields": ["month"]})
+    out = response["entries"][0]
+    original = response["sources"][0]["entries"][0]
+    assert out["changed"] == ["month"] and original["fields"]["month"] == [0, 0]
+
+def test_run_highlights_without_comments():
+    response = _run_text("@article{Key,\n  title = {A},\n"
+                         "  % note = {Commented out},\n  year = {2020},\n}\n",
+                         {"remove_fields": ["title"]})
+    original = response["sources"][0]["entries"][0]
+    assert response["entries"][0]["removed"] == ["title"]
+    assert original["fields"] == {"title": [1, 1], "year": [3, 3]}
+
+def test_run_changed_is_what_is_shown():
+    text = ("@article{Key,\n  title = \"A  title\",\n  month = nov,\n"
+            "  Link = {http://a.org},\n  year = 2020,\n}\n")
+    out = _run_text(text)["entries"][0]
+    # quotes, spaces, and bare numbers are not changes, but abbreviations
+    # that are expanded and renamed fields are
+    assert out["changed"] == ["month", "url"]
+    assert out["fields"]["month"] == [1, 1]

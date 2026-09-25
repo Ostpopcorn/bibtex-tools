@@ -19,12 +19,10 @@ changed. The steps are run in the following order:
 """
 import copy
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from bibtexparser.bibdatabase import BibDatabase
-from bibtexparser.bparser import BibTexParser
 
 from .clean_bib_file import (get_duplicate_index_pairs, remove_shorter_duplicate,
                              replace_duplicate_ids, replace_unicode_in_entry)
@@ -272,45 +270,3 @@ def run_pipeline(sources, options=None):
         options = PipelineOptions()
     return Pipeline().run(sources, options)
 
-
-_FIELD_ALIASES = {k: v for k, v in BibTexParser().alt_dict.items()
-                  if k != "keywords"}
-_RE_FIELD = re.compile(r'^[ \t]*([A-Za-z][\w:.+-]*)[ \t]*=', re.MULTILINE)
-
-def get_field_spans(bib_str, start=0, end=None):
-    """Return the start and end index of the fields of an entry in a bib
-    string between `start` and `end`, by the field names that the parser
-    uses. Only fields that start on a new line are found."""
-    if end is None:
-        end = len(bib_str)
-    matches = list(_RE_FIELD.finditer(bib_str, start, end))
-    spans = {}
-    for _idx, _match in enumerate(matches):
-        _end = matches[_idx+1].start() if _idx+1 < len(matches) else end
-        _value = bib_str[_match.start():_end].rstrip()
-        if _idx+1 == len(matches) and _value.endswith(("}", ")")):
-            # the closing brace of the entry
-            _value = _value[:-1].rstrip()
-        _name = _match.group(1).lower()
-        spans[_FIELD_ALIASES.get(_name, _name)] = (
-            _match.start(), _match.start() + len(_value))
-    return spans
-
-_RE_OUTPUT_FIELD = re.compile(r'^\t(\S+) = ')
-
-def get_output_field_lines(entry_text):
-    """Return the first and last line (starting at 0) of each field in an
-    entry as it is written in the output."""
-    lines = entry_text.split("\n")
-    spans = {}
-    current = None
-    for _idx, _line in enumerate(lines[1:], start=1):
-        _match = _RE_OUTPUT_FIELD.match(_line)
-        if _match:
-            current = _match.group(1)
-            spans[current] = [_idx, _idx]
-        elif _line == "}":
-            break
-        elif current is not None:
-            spans[current][1] = _idx
-    return {k: tuple(v) for k, v in spans.items()}

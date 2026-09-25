@@ -528,20 +528,37 @@ function renderFiles() {
     chip.append(button);
     files.append(chip);
   });
-  if (state.sources.length) {
-    const add = document.createElement("button");
-    add.className = "chip add";
-    add.textContent = "+ Add .bib";
-    add.title = "Add another bib file to combine them";
-    add.dataset.pick = "bib";
-    const paste = document.createElement("button");
-    paste.className = "chip add";
-    paste.textContent = "Paste";
-    paste.title = "Paste BibTeX to add it";
-    paste.dataset.paste = "";
-    files.append(add, paste);
-  }
 }
+
+/* Menu to add another bib file */
+
+const addButton = $("#add-button");
+const addMenu = $("#add-menu");
+
+function setAddMenu(open) {
+  addMenu.hidden = !open;
+  addButton.setAttribute("aria-expanded", String(open));
+  if (open) $("button", addMenu).focus();
+}
+
+addButton.addEventListener("click", () => setAddMenu(addMenu.hidden));
+document.addEventListener("click", (event) => {
+  if (!addMenu.hidden && !event.target.closest("#add-wrap")) setAddMenu(false);
+});
+addMenu.addEventListener("click", (event) => {
+  if (event.target.closest("[data-pick], [data-paste]")) setAddMenu(false);
+});
+addMenu.addEventListener("keydown", (event) => {
+  const items = $$("[role=menuitem]", addMenu);
+  const idx = items.indexOf(document.activeElement);
+  if (event.key === "Escape") {
+    setAddMenu(false);
+    addButton.focus();
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    items[(idx + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+  }
+});
 
 function renderFilesInfo() {
   for (const kind of ["bbl", "abbr"]) {
@@ -625,11 +642,13 @@ function renderOriginal(outByOrigin, unresolved) {
       } else if (removed) {
         cls += " gone";
         label = badge("rm", `removed · ${removed}`);
-      } else if (unresolved.has(entry.origin)) {
-        cls += " dup";
-        label = badge("dup", "duplicate?", ` data-dup="${entry.origin}" title="Choose which entry to keep"`);
-      } else if (out && out.id_changed) {
-        label = badge("chg", `→ ${out.id}`);
+      } else {
+        // An entry can be a possible duplicate and have a new ID at once
+        if (unresolved.has(entry.origin)) {
+          cls += " dup";
+          label += badge("dup", "duplicate?", ` data-dup="${entry.origin}" title="Choose which entry to keep"`);
+        }
+        if (out && out.id_changed) label += badge("chg", `→ ${out.id}`);
       }
       const lineCls = new Array(last - first + 1).fill("");
       if (out) {
@@ -671,10 +690,11 @@ function renderPreview(unresolved) {
     let cls = "entry";
     if (unresolved.has(out.origin)) {
       cls += " dup";
-      label = badge("dup", "duplicate?", ` data-dup="${out.origin}" title="Choose which entry to keep"`);
-    } else if (out.id_changed) {
+      label += badge("dup", "duplicate?", ` data-dup="${out.origin}" title="Choose which entry to keep"`);
+    }
+    if (out.id_changed) {
       lineCls[0] = "chg";
-      label = badge("chg", `was ${out.original_id}`);
+      label += badge("chg", `was ${out.original_id}`);
     }
     if (out.origin === state.selected) cls += " selected";
     parts.push(`<div class="${cls}" data-origin="${out.origin}">`);

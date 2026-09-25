@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   content of bib files, without asking for input. It keeps track of where each
   entry comes from and which fields changed.
 - Add `util.parse_bib_string`, `util.parse_abbr_string`,
-  `util.format_bib_entries`, and `util.get_entry_spans`, which work on strings
-  instead of files.
+  `util.format_bib_entries`, `util.get_entry_spans`, and
+  `util.get_field_spans`, which work on strings instead of files.
 - Add a `resolver` argument to `remove_duplicate_entries`, a function that
   decides which entry of a pair of duplicate entries to remove.
 - Add `modernize_bib_file.modernize_entry`,
@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- `modernize --iso4` no longer crashes on journal names that pyiso4 fails to
+  abbreviate, e.g., "Transactions on Different Work". They are kept, and a
+  warning is shown.
 - Abbreviations from an abbreviation file (`clean -a`) are no longer added to
   the global strings of bibtexparser, where they were used for all bib files
   that were loaded later.
