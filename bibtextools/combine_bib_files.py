@@ -16,8 +16,9 @@ def combine_bib_entries(bib_entries):
 
 
 
-def combine_bib_files_main(bib_files, allow_duplicates=False, force=False,
-                           replace_ids=False, verbose=logging.WARN, 
+def combine_bib_files_main(bib_files, allow_duplicates=False,
+                           remove_duplicates=False, interactive=False,
+                           replace_ids=False, verbose=logging.WARN,
                            encoding='utf-8'):
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
     logger = logging.getLogger('combine_bib_files')
@@ -28,10 +29,17 @@ def combine_bib_files_main(bib_files, allow_duplicates=False, force=False,
     bib_databases = [load_bib_file(_bib_file, abbr=None, encoding=encoding)
                      for _bib_file in bib_files]
     combined_entries = combine_bib_entries(bib_databases)
-    combined_entries = remove_duplicate_entries(combined_entries, force=force, verbose=verbose)
-    logger.debug("Successfully removed duplicates")
+    if remove_duplicates or interactive:
+        combined_entries = remove_duplicate_entries(combined_entries,
+                                                    interactive=interactive,
+                                                    verbose=verbose)
+        logger.debug("Successfully removed duplicates")
     #if replace_ids:
     #    combined_entries = #TODO: Adjust modernize function to support lists as input
     if not allow_duplicates:
-        combined_entries = replace_duplicate_ids(combined_entries)
+        combined_entries, duplicates = replace_duplicate_ids(combined_entries,
+                                                             return_dupl=True)
+        if duplicates:
+            logger.warning("Renamed entries with duplicate IDs (the first "
+                           "entry keeps its ID): %s", ", ".join(duplicates))
     return combined_entries

@@ -6,17 +6,10 @@ import click
 from . import __version__
 from .clean_bib_file import clean_bib_file_main
 from .combine_bib_files import combine_bib_files_main
+from .filter_bib_file import filter_cited_main
 from .modernize_bib_file import modernize_bib_main
 from .util import write_bib_database
-
-DEFAULT_REMOVE = ["abstract", "annote",
-                  "bdsk-url-1",
-                  #"comments", "comment",
-                  "date-added", "date-modified", 
-                  "file",
-                  #"keyword", "keywords", 
-                  "owner",
-                  "timestamp"]
+from .const import DEFAULT_REMOVE
 
 
 def print_version(ctx, param, value):
@@ -41,18 +34,21 @@ def main(ctx, output, verbose):
 @click.argument("bib_file", required=True, type=click.Path(exists=True))
 @click.option("-r", "--remove_fields", multiple=True, default=DEFAULT_REMOVE)
 @click.option("--replace_ids", is_flag=True, default=False)
-@click.option("--force", is_flag=True, default=False)
+@click.option("--remove-duplicates", is_flag=True, default=False)
+@click.option("-i", "--interactive", is_flag=True, default=False)
 @click.option("--arxiv", is_flag=True, default=False)
 @click.option("--shield_title", is_flag=True, default=False)
 @click.option("--iso4", is_flag=True, default=False)
-def modernize(ctx, bib_file, remove_fields, replace_ids, force, arxiv, shield_title, iso4):
+def modernize(ctx, bib_file, remove_fields, replace_ids, remove_duplicates,
+              interactive, arxiv, shield_title, iso4):
     clean_entries = modernize_bib_main(remove_fields=remove_fields,
                                        replace_ids=replace_ids,
                                        arxiv=arxiv,
                                        shield_title=shield_title,
                                        bib_file=bib_file,
                                        iso4=iso4,
-                                       force=force,
+                                       remove_duplicates=remove_duplicates,
+                                       interactive=interactive,
                                        #bib_file=ctx.parent.params['bib_file'],
                                        verbose=ctx.parent.params['verbose'])
     return clean_entries, bib_file
@@ -63,11 +59,14 @@ def modernize(ctx, bib_file, remove_fields, replace_ids, force, arxiv, shield_ti
 @click.option("-a", "--abbr_file", type=click.Path(exists=True, dir_okay=False))
 @click.option("-r", "--remove_fields", multiple=True, default=DEFAULT_REMOVE)
 @click.option("-u", "--replace_unicode", is_flag=True)
-@click.option("--force", is_flag=True, default=False)
-def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode, force):
+@click.option("--remove-duplicates", is_flag=True, default=False)
+@click.option("-i", "--interactive", is_flag=True, default=False)
+def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode,
+          remove_duplicates, interactive):
     clean_entries = clean_bib_file_main(remove_fields=remove_fields,
                                         replace_unicode=replace_unicode,
-                                        force=force,
+                                        remove_duplicates=remove_duplicates,
+                                        interactive=interactive,
                                         abbr_file=abbr_file,
                                         bib_file=bib_file,
                                         verbose=ctx.parent.params['verbose'])
@@ -78,14 +77,28 @@ def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode, force):
 @click.argument("bib_file", required=True, type=click.Path(exists=True), nargs=-1)
 @click.option("--allow_duplicates", is_flag=True, default=False)
 @click.option("--replace_ids", is_flag=True, default=False)
-@click.option("--force", is_flag=True, default=False)
-def combine(ctx, bib_file, allow_duplicates, replace_ids, force):
+@click.option("--remove-duplicates", is_flag=True, default=False)
+@click.option("-i", "--interactive", is_flag=True, default=False)
+def combine(ctx, bib_file, allow_duplicates, replace_ids, remove_duplicates,
+            interactive):
     combined_entries = combine_bib_files_main(bib_files=bib_file,
                                               allow_duplicates=allow_duplicates,
                                               replace_ids=replace_ids,
-                                              force=force,
+                                              remove_duplicates=remove_duplicates,
+                                              interactive=interactive,
                                               verbose=ctx.parent.params['verbose'])
     return combined_entries, bib_file
+
+@main.command("filter-cited")
+@click.pass_context
+@click.argument("bib_file", required=True, type=click.Path(exists=True))
+@click.option("--bbl", "bbl_file", required=True,
+              type=click.Path(exists=True, dir_okay=False))
+def filter_cited(ctx, bib_file, bbl_file):
+    kept_entries = filter_cited_main(bib_file=bib_file,
+                                     bbl_file=bbl_file,
+                                     verbose=ctx.parent.params['verbose'])
+    return kept_entries, bib_file
 
 @main.result_callback()
 @click.pass_context

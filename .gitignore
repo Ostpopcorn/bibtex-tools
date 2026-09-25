@@ -95,6 +95,7 @@ Pipfile.lock
 
 ## Bibliography auxiliary files (bibtex/biblatex/biber):
 *.bbl
+!tests/*.bbl
 *.bcf
 *.blg
 *-blx.aux
@@ -334,3 +335,6 @@ clean-*.bib
 # Virtual environments
 venv/
 .venv/
+
+# Web app build
+web/dist/
