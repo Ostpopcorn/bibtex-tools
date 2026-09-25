@@ -364,6 +364,7 @@ h1, h2, h3 { margin: 0; }
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   position: relative;
   padding: 6px 0 24px;
   font: 12.5px/1.6 var(--code-font);
@@ -475,6 +476,15 @@ body.dragging .drop-card { border-color: var(--accent); background: var(--accent
 .drop-card h1 { font-size: 20px; font-weight: 650; letter-spacing: -.01em; }
 .drop-card > p { margin: 8px auto 0; color: var(--muted); max-width: 400px; }
 .drop-actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
+.paste-hint { margin: 14px 0 0 !important; font-size: 12.5px; }
+kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font: 11.5px var(--code-font);
+}
 .privacy { display: inline-flex; align-items: center; gap: 6px; margin-top: 22px !important; font-size: 12px; }
 .privacy svg { width: 14px; height: 14px; }
 
@@ -549,6 +559,26 @@ body.has-files.dragging .workspace { outline: 2px dashed var(--accent); outline-
 .dup-side.kept .dup-state { color: var(--add-bar); }
 .dup-side .l.only { background: var(--dup-bg); border-left-color: var(--dup-bar); }
 .dialog-foot { display: flex; align-items: center; gap: 8px; padding: 14px 20px 18px; }
+.dialog-foot .hint { color: var(--rm-text); }
+.paste-dialog { width: min(820px, calc(100vw - 32px)); }
+.paste-dialog .dialog-head { flex-wrap: wrap; row-gap: 2px; }
+.paste-dialog .dialog-head .meta { order: 3; flex-basis: 100%; }
+.paste-dialog .dialog-head .icon-btn { margin-left: auto; }
+#paste-text {
+  display: block;
+  width: calc(100% - 40px);
+  height: min(52vh, 460px);
+  margin: 8px 20px 0;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 12.5px/1.55 var(--code-font);
+  tab-size: 4;
+}
+#paste-text:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .spacer { flex: 1; }
 
 /* Toast */
@@ -616,4 +646,5 @@ body.has-files.dragging .workspace { outline: 2px dashed var(--accent); outline-
   .pane-head { flex-wrap: wrap; row-gap: 4px; }
   .drop-card { padding: 32px 20px; }
   .drop-actions { flex-direction: column; }
+  .drop-actions .btn { justify-content: center; }
 }

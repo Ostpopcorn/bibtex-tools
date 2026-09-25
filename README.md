@@ -19,9 +19,11 @@ next to the result with the current settings, before you download it:
 
 * Switch the steps of all commands on and off at the top: `filter-cited` (with
   your `.bbl` file), `clean`, `modernize`, removing fields, and duplicate
-  entries.  Open multiple bib files to `combine` them.
+  entries.  Open, drop, or paste (Ctrl+V) bib files.  Multiple bib files are
+  combined like with `combine`.
 * Changed fields are highlighted on both sides, and removed fields and entries
-  are marked in the original.  Click an entry to find it on the other side.
+  are marked in the original.  Click an entry to show it at the same height on
+  the other side.
 * Choose which entry of each pair of duplicate entries to remove.
 * _Share settings_ copies a link with your settings (not your files) for your
   colleagues.
