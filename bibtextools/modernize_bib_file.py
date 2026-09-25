@@ -147,20 +147,27 @@ def get_abbreviator():
     finally:
         del ltwa.open
 
+def abbreviate_name(name):
+    """Abbreviate a journal or conference name according to ISO4. Names that
+    pyiso4 fails on are kept, e.g., "Transactions on Different Work"."""
+    try:
+        return get_abbreviator()(name)
+    except Exception:
+        logging.getLogger('modernize_bib_file').warning(
+            "Could not abbreviate %r, so it is kept", name)
+        return name
+
 def abbreviate_journalname(entry):
     entry = entry.copy()
-    abbreviator = get_abbreviator()
     if entry[KEY_ENTRYTYPE] == "inproceedings":
         conf = entry.get(KEY_BOOKTITLE, False)
         if conf:
-            conf_abbr = abbreviator(conf)
-            entry[KEY_BOOKTITLE] = conf_abbr
+            entry[KEY_BOOKTITLE] = abbreviate_name(conf)
     for _key in KEYS_JOURNAL:
         journal = entry.get(_key, False)
         if not journal:
             continue
-        journal_abbr = abbreviator(journal)
-        entry[_key] = journal_abbr
+        entry[_key] = abbreviate_name(journal)
     return entry
 
 def modernize_entry(entry, remove_fields=(), replace_ids=False, arxiv=False,
