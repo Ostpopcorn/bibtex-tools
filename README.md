@@ -13,7 +13,7 @@ The main purpose is to clean up bib files such that match the format for the
 ## Web App
 All commands are also available as a web app, which shows the original file
 next to the result with the current settings, before you download it:
-[ostpopcorn.github.io/bibtex-tools](https://ostpopcorn.github.io/bibtex-tools/)
+[ostpopcorn.github.io/bibtex-tool](https://ostpopcorn.github.io/bibtex-tool/)
 
 ![Screenshot of the web app](web/screenshot.png)
 
