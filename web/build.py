@@ -1,0 +1,132 @@
+"""Build the web app into a folder that can be served as a static site, e.g.,
+with GitHub Pages. The web app runs bibtextools in the browser with Pyodide,
+which is downloaded from npm and served with the app.
+
+    python web/build.py                 # build into web/dist
+    python web/build.py --serve         # build and serve on http://localhost:8000
+    python web/build.py --out _site     # build into another folder
+"""
+import argparse
+import base64
+import functools
+import hashlib
+import http.server
+import io
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+
+PYODIDE_VERSION = "314.0.7"
+PYODIDE_FILES = ["pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm",
+                 "python_stdlib.zip", "pyodide-lock.json"]
+STATIC_FILES = ["index.html", "style.css", "app.js", "worker.js", "favicon.svg"]
+EXAMPLES = ["old.bib"]
+
+WEB_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(WEB_DIR)
+CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "bibtextools-web")
+
+
+def download_pyodide(version=PYODIDE_VERSION):
+    """Return the npm package of Pyodide, which is cached."""
+    path = os.path.join(CACHE_DIR, "pyodide-{}.tgz".format(version))
+    if os.path.isfile(path):
+        with open(path, "rb") as _file:
+            return _file.read()
+    url = "https://registry.npmjs.org/pyodide/{}".format(version)
+    with urllib.request.urlopen(url) as response:
+        dist = json.load(response)["dist"]
+    print("Downloading", dist["tarball"])
+    with urllib.request.urlopen(dist["tarball"]) as response:
+        data = response.read()
+    algorithm, digest = dist["integrity"].split("-", 1)
+    if base64.b64encode(hashlib.new(algorithm, data).digest()).decode() != digest:
+        raise RuntimeError("The download of Pyodide is corrupted")
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(path, "wb") as _file:
+        _file.write(data)
+    return data
+
+
+def copy_pyodide(out_dir):
+    target = os.path.join(out_dir, "pyodide")
+    os.makedirs(target)
+    with tarfile.open(fileobj=io.BytesIO(download_pyodide())) as archive:
+        for name in PYODIDE_FILES:
+            member = archive.extractfile("package/" + name)
+            with open(os.path.join(target, name), "wb") as _file:
+                shutil.copyfileobj(member, _file)
+
+
+def build_wheels(out_dir):
+    """Build the wheels of bibtextools and its dependencies, which are all
+    pure Python, and list them in a manifest."""
+    target = os.path.join(out_dir, "wheels")
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([sys.executable, "-m", "pip", "wheel", "--quiet",
+                        "--wheel-dir", tmp, ROOT_DIR], check=True)
+        wheels = sorted(k for k in os.listdir(tmp) if k.endswith(".whl"))
+        not_pure = [k for k in wheels if not k.endswith("-none-any.whl")]
+        if not_pure:
+            raise RuntimeError("Pyodide needs pure Python wheels: {}".format(
+                ", ".join(not_pure)))
+        os.makedirs(target)
+        for wheel in wheels:
+            shutil.copy(os.path.join(tmp, wheel), target)
+    sys.path.insert(0, ROOT_DIR)
+    from bibtextools import __version__
+    with open(os.path.join(target, "manifest.json"), "w") as _file:
+        json.dump({"version": __version__, "wheels": wheels}, _file, indent=2)
+    return wheels
+
+
+def build(out_dir):
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
+    os.makedirs(out_dir)
+    for name in STATIC_FILES:
+        shutil.copy(os.path.join(WEB_DIR, name), out_dir)
+    os.makedirs(os.path.join(out_dir, "examples"))
+    for name in EXAMPLES:
+        shutil.copy(os.path.join(ROOT_DIR, "examples", name),
+                    os.path.join(out_dir, "examples"))
+    copy_pyodide(out_dir)
+    wheels = build_wheels(out_dir)
+    print("Built the web app in {} with {}".format(out_dir, ", ".join(wheels)))
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map,
+                      ".mjs": "text/javascript", ".js": "text/javascript",
+                      ".wasm": "application/wasm", ".bib": "text/plain"}
+
+
+def serve(out_dir, port):
+    handler = functools.partial(Handler, directory=out_dir)
+    with http.server.ThreadingHTTPServer(("localhost", port), handler) as server:
+        print("Serving the web app on http://localhost:{}".format(port))
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--out", default=os.path.join(WEB_DIR, "dist"),
+                        help="Output folder (default: web/dist)")
+    parser.add_argument("--serve", nargs="?", type=int, const=8000,
+                        metavar="PORT", help="Serve the web app after building")
+    args = parser.parse_args()
+    build(args.out)
+    if args.serve:
+        serve(args.out, args.serve)
+
+
+if __name__ == "__main__":
+    main()

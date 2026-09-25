@@ -9,11 +9,15 @@ from bibtexparser.bibdatabase import BibDatabase
 
 from .const import KEY_ID
 
+def parse_abbr_string(abbr_str):
+    """Return the abbreviations (`@string`) of the content of a bib file."""
+    parser = BibTexParser(homogenize_fields=True, common_strings=True)
+    abbr_database = bibtexparser.loads(abbr_str, parser=parser)
+    return abbr_database.strings
+
 def load_abbr(abbr_file, encoding="utf-8"):
     with open(abbr_file, encoding=encoding) as _abbr_file:
-        parser = BibTexParser(homogenize_fields=True, common_strings=True)
-        abbr_database = bibtexparser.load(_abbr_file, parser=parser)
-    return abbr_database.strings
+        return parse_abbr_string(_abbr_file.read())
 
 def strip_comments(bib_str):
     """Remove `%` comments between the fields of an entry, e.g., a commented
@@ -51,13 +55,16 @@ _RE_ENTRY_HEAD = re.compile(r'^[ \t]*@[ \t]*(\w+)[ \t]*(?P<open>[{(])\s*(?P<id>[
 _RE_COMMENT_HEAD = re.compile(r'^[ \t]*@[ \t]*comment[ \t]*\{',
                               re.MULTILINE | re.IGNORECASE)
 
+_RE_BRACE = re.compile(r'[{}]')
+
 def _find_closing_brace(bib_str, idx):
     """Return the index after the brace that closes the one before `idx`."""
     depth = 1
-    while depth > 0 and idx < len(bib_str):
-        depth += {"{": 1, "}": -1}.get(bib_str[idx], 0)
-        idx += 1
-    return idx
+    for _match in _RE_BRACE.finditer(bib_str, idx):
+        depth += 1 if _match.group() == "{" else -1
+        if depth == 0:
+            return _match.end()
+    return len(bib_str)
 
 def get_entry_spans(bib_str):
     """Return the ID, start, and end index of all entries that start on a

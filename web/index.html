@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BibTeX Tools</title>
+  <meta name="description" content="Clean, modernize, combine, and filter BibTeX files in your browser, with a live preview.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="favicon.svg" alt="" width="28" height="28">
+      <span>BibTeX Tools</span>
+    </div>
+    <div class="files" id="files" aria-label="Opened bib files"></div>
+    <div class="actions">
+      <button class="btn ghost icon-btn" id="theme" title="Switch between light and dark mode" aria-label="Switch between light and dark mode">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <button class="btn ghost" id="share" title="Copy a link with the current settings (without your files)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1 1"/><path d="M14 10a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1-1"/></svg>
+        Share settings
+      </button>
+      <button class="btn" id="copy" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        Copy
+      </button>
+      <button class="btn primary" id="download" disabled title="Download the result (Ctrl+S)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download .bib
+      </button>
+    </div>
+  </header>
+
+  <section class="options" id="options" aria-label="Settings">
+    <article class="card" data-section="filter">
+      <header class="card-head">
+        <label class="switch" title="Enable filter-cited">
+          <input type="checkbox" data-setting="filter.enabled"><span class="track"></span>
+        </label>
+        <div>
+          <h3>Filter cited</h3>
+          <p>Keep only entries cited in a <code>.bbl</code> file</p>
+        </div>
+      </header>
+      <div class="card-body">
+        <div class="file-field">
+          <button class="btn small" data-pick="bbl">Choose .bbl</button>
+          <span class="file-name" id="bbl-name">No file</span>
+          <button class="btn ghost tiny icon-btn" data-clear="bbl" hidden aria-label="Remove .bbl file">×</button>
+        </div>
+        <p class="hint" id="bbl-info">Compile your document, then pick its <code>.bbl</code> file.</p>
+      </div>
+    </article>
+
+    <article class="card" data-section="clean">
+      <header class="card-head">
+        <label class="switch" title="Enable clean">
+          <input type="checkbox" data-setting="clean.enabled"><span class="track"></span>
+        </label>
+        <div>
+          <h3>Clean</h3>
+          <p>Expand abbreviations, convert unicode</p>
+        </div>
+      </header>
+      <div class="card-body">
+        <div class="file-field">
+          <button class="btn small" data-pick="abbr">Abbreviations…</button>
+          <span class="file-name" id="abbr-name">None</span>
+          <button class="btn ghost tiny icon-btn" data-clear="abbr" hidden aria-label="Remove abbreviation file">×</button>
+        </div>
+        <label class="check"><input type="checkbox" data-setting="clean.unicode"> <span>Unicode → LaTeX <span class="muted">(ä → {\"a})</span></span></label>
+      </div>
+    </article>
+
+    <article class="card wide" data-section="modernize">
+      <header class="card-head">
+        <label class="switch" title="Enable modernize">
+          <input type="checkbox" data-setting="modernize.enabled"><span class="track"></span>
+        </label>
+        <div>
+          <h3>Modernize</h3>
+          <p>Clean up fields for biblatex</p>
+        </div>
+      </header>
+      <div class="card-body">
+        <div class="pills" role="group" aria-label="Fields to clean up">
+          <label class="pill"><input type="checkbox" data-field="month"><span>Months</span></label>
+          <label class="pill"><input type="checkbox" data-field="pages"><span>Pages</span></label>
+          <label class="pill"><input type="checkbox" data-field="author"><span>Authors</span></label>
+          <label class="pill"><input type="checkbox" data-field="title"><span>Titles</span></label>
+          <label class="pill"><input type="checkbox" data-field="eprint"><span>Eprints</span></label>
+        </div>
+        <div class="check-grid">
+          <label class="check"><input type="checkbox" data-setting="modernize.shield"> <span>Shield titles <span class="muted">{…}</span></span></label>
+          <label class="check"><input type="checkbox" data-setting="modernize.iso4"> <span>ISO 4 journal names</span></label>
+          <label class="check"><input type="checkbox" data-setting="modernize.ids"> <span>Generate IDs</span></label>
+          <label class="check" title="Looks up the eprint IDs on arxiv.org"><input type="checkbox" data-setting="modernize.arxiv"> <span>arXiv categories <span class="muted" id="arxiv-state"></span></span></label>
+        </div>
+      </div>
+    </article>
+
+    <article class="card wide" data-section="remove">
+      <header class="card-head">
+        <label class="switch" title="Enable removing fields">
+          <input type="checkbox" data-setting="remove.enabled"><span class="track"></span>
+        </label>
+        <div>
+          <h3>Remove fields</h3>
+          <p>Drop fields you do not need</p>
+        </div>
+        <button class="btn ghost tiny" id="remove-reset" title="Reset to the default fields">Reset</button>
+      </header>
+      <div class="card-body">
+        <div class="tags" id="remove-tags">
+          <input id="remove-input" list="field-suggestions" placeholder="Add field…" aria-label="Add a field to remove" autocomplete="off" spellcheck="false">
+        </div>
+        <datalist id="field-suggestions"></datalist>
+      </div>
+    </article>
+
+    <article class="card" data-section="duplicates">
+      <header class="card-head">
+        <div>
+          <h3>Duplicates</h3>
+          <p>The same work stored twice</p>
+        </div>
+      </header>
+      <div class="card-body">
+        <div class="segmented" role="radiogroup" aria-label="Duplicate entries">
+          <label><input type="radio" name="duplicates" value="keep"><span>Keep</span></label>
+          <label><input type="radio" name="duplicates" value="remove-shorter"><span>Remove shorter</span></label>
+          <label><input type="radio" name="duplicates" value="choose"><span>Choose</span></label>
+        </div>
+        <div class="row">
+          <label class="check"><input type="checkbox" data-setting="duplicates.rename"> <span>Rename duplicate IDs</span></label>
+          <button class="btn small" id="review" hidden>Review</button>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <main class="workspace" id="workspace">
+    <section class="empty" id="empty">
+      <div class="drop-card">
+        <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9 14 3-3 3 3"/></svg>
+        <h1>Drop your <code>.bib</code> files here</h1>
+        <p>Toggle the settings above and see the result next to the original, before you download it.</p>
+        <div class="drop-actions">
+          <button class="btn primary large" data-pick="bib">Open .bib files</button>
+          <button class="btn large" id="example">Try an example</button>
+        </div>
+        <p class="privacy">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          Your files never leave your computer. Everything runs in your browser.
+        </p>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-original" aria-label="Original">
+      <header class="pane-head">
+        <h2>Original</h2>
+        <span class="meta" id="original-meta"></span>
+        <span class="legend"><i class="sw rm"></i>removed <i class="sw chg"></i>changed</span>
+      </header>
+      <div class="code" id="original" tabindex="0"></div>
+    </section>
+
+    <section class="pane" id="pane-preview" aria-label="Preview">
+      <header class="pane-head">
+        <h2>Preview</h2>
+        <span class="meta" id="preview-meta"></span>
+        <span class="legend"><i class="sw add"></i>added <i class="sw chg"></i>changed</span>
+        <label class="check compact" title="Sort the entries by their ID, like the command line tool"><input type="checkbox" data-setting="sort"> Sort by ID</label>
+        <label class="check compact" title="Scroll both sides together"><input type="checkbox" id="link-scroll" checked> Link scrolling</label>
+      </header>
+      <div class="code" id="preview" tabindex="0"></div>
+      <div class="overlay" id="overlay">
+        <div class="spinner" aria-hidden="true"></div>
+        <p id="overlay-text">Starting Python…</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="status" id="status" aria-live="polite">
+    <div class="status-left" id="status-counts"></div>
+    <div class="status-messages" id="status-messages"></div>
+    <div class="status-right"><span class="dot" id="engine-dot"></span><span id="engine-state">Loading Python…</span></div>
+  </footer>
+
+  <dialog class="dialog" id="dup-dialog" aria-labelledby="dup-title">
+    <header class="dialog-head">
+      <h2 id="dup-title">Duplicate entries</h2>
+      <span class="meta" id="dup-counter"></span>
+      <button class="btn ghost icon-btn" data-dialog-close aria-label="Close">×</button>
+    </header>
+    <p class="hint">Both entries seem to be the same work. Choose the one to remove, or keep both.</p>
+    <div class="dup-grid">
+      <section class="dup-side" data-side="0">
+        <header><strong class="dup-id"></strong><span class="dup-state"></span></header>
+        <div class="code small"></div>
+        <button class="btn danger" data-remove="0">Remove this entry</button>
+      </section>
+      <section class="dup-side" data-side="1">
+        <header><strong class="dup-id"></strong><span class="dup-state"></span></header>
+        <div class="code small"></div>
+        <button class="btn danger" data-remove="1">Remove this entry</button>
+      </section>
+    </div>
+    <footer class="dialog-foot">
+      <button class="btn" id="dup-prev">← Previous</button>
+      <button class="btn" id="dup-keep">Keep both</button>
+      <button class="btn" id="dup-next">Next →</button>
+      <span class="spacer"></span>
+      <button class="btn primary" data-dialog-close>Done</button>
+    </footer>
+  </dialog>
+
+  <input type="file" id="pick-bib" accept=".bib,text/x-bibtex" multiple hidden>
+  <input type="file" id="pick-bbl" accept=".bbl" hidden>
+  <input type="file" id="pick-abbr" accept=".bib" hidden>
+  <div class="toast" id="toast" role="status"></div>
+</body>
+</html>

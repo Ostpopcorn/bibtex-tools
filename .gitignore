@@ -335,3 +335,6 @@ clean-*.bib
 # Virtual environments
 venv/
 .venv/
+
+# Web app build
+web/dist/

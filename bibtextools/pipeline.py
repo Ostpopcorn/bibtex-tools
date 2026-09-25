@@ -104,6 +104,9 @@ class PipelineResult:
     messages: list
 
 
+def _count(number, word, words):
+    return "{:d} {}".format(number, word if number == 1 else words)
+
 def compare_entries(original, entry):
     """Return the names of the added, changed, and removed fields."""
     ignore = (KEY_ID, KEY_ENTRYTYPE)
@@ -159,10 +162,10 @@ class Pipeline:
         messages = []
         for _src_idx, _ids in unreadable.items():
             messages.append((logging.WARNING,
-                             "Could not read {:d} entries from {} (check them "
-                             "for syntax errors): {}".format(
-                                 len(_ids), sources[_src_idx][0],
-                                 ", ".join(_ids))))
+                             "Could not read {} from {} (check for syntax "
+                             "errors): {}".format(
+                                 _count(len(_ids), "entry", "entries"),
+                                 sources[_src_idx][0], ", ".join(_ids))))
 
         removed = {}
         missing = set()
@@ -176,9 +179,10 @@ class Pipeline:
                        - set(_entry[KEY_ID] for _entry in entries))
             if missing:
                 messages.append((logging.WARNING,
-                                 "{:d} cited keys are not in the bib files: "
-                                 "{}".format(len(missing),
-                                             ", ".join(sorted(missing)))))
+                                 "{} not in the bib files: {}".format(
+                                     _count(len(missing), "cited key is",
+                                            "cited keys are"),
+                                     ", ".join(sorted(missing)))))
             entries, origins = _drop(entries, origins, removed)
 
         pairs = None
@@ -205,9 +209,10 @@ class Pipeline:
                     by_origin[_keep][KEY_ID])
             if unresolved:
                 messages.append((logging.INFO,
-                                 "{:d} pairs of duplicate entries are kept "
-                                 "until you choose which entry to remove"
-                                 .format(len(unresolved))))
+                                 "{} of duplicate entries kept until you "
+                                 "choose which entry to remove".format(
+                                     _count(len(unresolved), "pair",
+                                            "pairs"))))
             entries, origins = _drop(entries, origins, removed)
 
         for _idx, _entry in enumerate(entries):

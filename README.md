@@ -10,6 +10,34 @@ working with BibTeX files (`*.bib`).
 The main purpose is to clean up bib files such that match the format for the
 [biblatex](https://ctan.org/pkg/biblatex) package.
 
+## Web App
+All commands are also available as a web app, which shows the original file
+next to the result with the current settings, before you download it:
+[ostpopcorn.github.io/bibtex-tools](https://ostpopcorn.github.io/bibtex-tools/)
+
+![Screenshot of the web app](web/screenshot.png)
+
+* Switch the steps of all commands on and off at the top: `filter-cited` (with
+  your `.bbl` file), `clean`, `modernize`, removing fields, and duplicate
+  entries.  Open multiple bib files to `combine` them.
+* Changed fields are highlighted on both sides, and removed fields and entries
+  are marked in the original.  Click an entry to find it on the other side.
+* Choose which entry of each pair of duplicate entries to remove.
+* _Share settings_ copies a link with your settings (not your files) for your
+  colleagues.
+
+The web app runs `bibtextools` in your browser with
+[Pyodide](https://pyodide.org), so your files never leave your computer.  Only
+the eprint IDs are sent to arXiv, if you turn on the arXiv categories.
+
+To run the web app locally, build it and serve it on http://localhost:8000 with
+```bash
+python3 web/build.py --serve
+```
+The workflow `.github/workflows/web.yml` publishes the web app with GitHub
+Pages for every push to `master`.  In the settings of the repository, select
+_GitHub Actions_ as the source under _Pages_ once.
+
 ## Usage
 Right now, the following functions are available
 
