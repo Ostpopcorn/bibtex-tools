@@ -122,6 +122,10 @@ def get_duplicate_index_pairs(entries):
         if _have_different_identifiers(_entry1, _entry2):
             continue
         seq_matcher_title.set_seqs(_entry2[KEY_TITLE], _entry1[KEY_TITLE])
+        # The quick ratios are upper bounds of the ratio, which is slow
+        if (seq_matcher_title.real_quick_ratio() < .8
+                or seq_matcher_title.quick_ratio() < .8):
+            continue
         _title_ratio = seq_matcher_title.ratio()
         if _title_ratio < .8:
             continue
