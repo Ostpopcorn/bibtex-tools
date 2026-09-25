@@ -156,12 +156,15 @@ def get_duplicate_entries(entries):
     return duplicates
 
 @cleaning_function(on_all_entries=True)
-def remove_duplicate_entries(entries, force=False, verbose=logging.WARN):
+def remove_duplicate_entries(entries, interactive=False, verbose=logging.WARN):
     logger = logging.getLogger('remove_duplicate_entries')
     logger.setLevel(verbose)
     duplicates = get_duplicate_entries(entries)
     if duplicates:
         logger.warning("Found %d duplicate pairs", len(duplicates))
+        if not interactive:
+            logger.warning("Removing the entry with less fields of each pair. "
+                           "Use --interactive to choose which entry to remove.")
     else:
         logger.info("No duplicate citations found.")
     _skipped = []
@@ -169,8 +172,8 @@ def remove_duplicate_entries(entries, force=False, verbose=logging.WARN):
         #_pair = duplicates[0]
         _pair = duplicates.pop(0)
         _shorter_entry, _longer_entry = sorted(_pair, key=len)
-        if force:
-            logger.warning("Due to --force argument, removing duplicate entry %s (keeping %s) without asking",
+        if not interactive:
+            logger.warning("Removing duplicate entry %s (keeping %s)",
                            _shorter_entry[KEY_ID], _longer_entry[KEY_ID])
             entries.remove(_shorter_entry)
         else:
@@ -219,7 +222,8 @@ def replace_unicode_in_entry(entry):
 replace_unicode_in_database = cleaning_function()(replace_unicode_in_entry)
 
 def clean_bib_file_main(bib_file, abbr_file=None, remove_fields=None,
-                        encoding="utf-8", force=False, verbose=logging.WARN, 
+                        encoding="utf-8", remove_duplicates=False,
+                        interactive=False, verbose=logging.WARN,
                         replace_unicode=False):
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
     logger = logging.getLogger('clean_bib_file')
@@ -229,8 +233,11 @@ def clean_bib_file_main(bib_file, abbr_file=None, remove_fields=None,
         logger.info("Using the following abbreviation file: %s", abbr_file)
     bib_database = load_bib_file(bib_file, abbr=abbr_file, encoding=encoding)
     logger.debug("Loaded file and replaced abbreviation strings")
-    bib_database = remove_duplicate_entries(bib_database, force=force, verbose=verbose)
-    logger.debug("Successfully removed duplicates")
+    if remove_duplicates or interactive:
+        bib_database = remove_duplicate_entries(bib_database,
+                                                interactive=interactive,
+                                                verbose=verbose)
+        logger.debug("Successfully removed duplicates")
     clean_entries, duplicates = replace_duplicate_ids(bib_database,
                                                       return_dupl=True)
     if duplicates:

@@ -42,18 +42,21 @@ def main(ctx, output, verbose):
 @click.argument("bib_file", required=True, type=click.Path(exists=True))
 @click.option("-r", "--remove_fields", multiple=True, default=DEFAULT_REMOVE)
 @click.option("--replace_ids", is_flag=True, default=False)
-@click.option("--force", is_flag=True, default=False)
+@click.option("--remove-duplicates", is_flag=True, default=False)
+@click.option("-i", "--interactive", is_flag=True, default=False)
 @click.option("--arxiv", is_flag=True, default=False)
 @click.option("--shield_title", is_flag=True, default=False)
 @click.option("--iso4", is_flag=True, default=False)
-def modernize(ctx, bib_file, remove_fields, replace_ids, force, arxiv, shield_title, iso4):
+def modernize(ctx, bib_file, remove_fields, replace_ids, remove_duplicates,
+              interactive, arxiv, shield_title, iso4):
     clean_entries = modernize_bib_main(remove_fields=remove_fields,
                                        replace_ids=replace_ids,
                                        arxiv=arxiv,
                                        shield_title=shield_title,
                                        bib_file=bib_file,
                                        iso4=iso4,
-                                       force=force,
+                                       remove_duplicates=remove_duplicates,
+                                       interactive=interactive,
                                        #bib_file=ctx.parent.params['bib_file'],
                                        verbose=ctx.parent.params['verbose'])
     return clean_entries, bib_file
@@ -64,11 +67,14 @@ def modernize(ctx, bib_file, remove_fields, replace_ids, force, arxiv, shield_ti
 @click.option("-a", "--abbr_file", type=click.Path(exists=True, dir_okay=False))
 @click.option("-r", "--remove_fields", multiple=True, default=DEFAULT_REMOVE)
 @click.option("-u", "--replace_unicode", is_flag=True)
-@click.option("--force", is_flag=True, default=False)
-def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode, force):
+@click.option("--remove-duplicates", is_flag=True, default=False)
+@click.option("-i", "--interactive", is_flag=True, default=False)
+def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode,
+          remove_duplicates, interactive):
     clean_entries = clean_bib_file_main(remove_fields=remove_fields,
                                         replace_unicode=replace_unicode,
-                                        force=force,
+                                        remove_duplicates=remove_duplicates,
+                                        interactive=interactive,
                                         abbr_file=abbr_file,
                                         bib_file=bib_file,
                                         verbose=ctx.parent.params['verbose'])
@@ -79,12 +85,15 @@ def clean(ctx, bib_file, abbr_file, remove_fields, replace_unicode, force):
 @click.argument("bib_file", required=True, type=click.Path(exists=True), nargs=-1)
 @click.option("--allow_duplicates", is_flag=True, default=False)
 @click.option("--replace_ids", is_flag=True, default=False)
-@click.option("--force", is_flag=True, default=False)
-def combine(ctx, bib_file, allow_duplicates, replace_ids, force):
+@click.option("--remove-duplicates", is_flag=True, default=False)
+@click.option("-i", "--interactive", is_flag=True, default=False)
+def combine(ctx, bib_file, allow_duplicates, replace_ids, remove_duplicates,
+            interactive):
     combined_entries = combine_bib_files_main(bib_files=bib_file,
                                               allow_duplicates=allow_duplicates,
                                               replace_ids=replace_ids,
-                                              force=force,
+                                              remove_duplicates=remove_duplicates,
+                                              interactive=interactive,
                                               verbose=ctx.parent.params['verbose'])
     return combined_entries, bib_file
 
