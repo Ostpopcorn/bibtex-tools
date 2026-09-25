@@ -185,6 +185,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           Your files never leave your computer. Everything runs in your browser.
         </p>
+        <p class="credit">A web version of <a href="https://github.com/klb2/bibtex-tools" target="_blank" rel="noopener">bibtex-tools</a> by Karl-Ludwig Besser (klb2).</p>
       </div>
     </section>
 
@@ -216,8 +217,38 @@
   <footer class="status" id="status" aria-live="polite">
     <div class="status-left" id="status-counts"></div>
     <div class="status-messages" id="status-messages"></div>
+    <div class="credits">
+      <span>Web version of <a href="https://github.com/klb2/bibtex-tools" target="_blank" rel="noopener">bibtex-tools</a> by klb2</span>
+      <span aria-hidden="true">·</span>
+      <a href="https://github.com/Ostpopcorn/bibtex-tools" target="_blank" rel="noopener">Source</a>
+      <span aria-hidden="true">·</span>
+      <button class="link" id="about-open">About</button>
+    </div>
     <div class="status-right"><span class="dot" id="engine-dot"></span><span id="engine-state">Loading Python…</span></div>
   </footer>
+
+  <dialog class="dialog about-dialog" id="about-dialog" aria-labelledby="about-title">
+    <header class="dialog-head">
+      <h2 id="about-title">About BibTeX Tools</h2>
+      <span class="spacer"></span>
+      <button class="btn ghost icon-btn" data-dialog-close aria-label="Close">×</button>
+    </header>
+    <div class="about-body">
+      <p>This is a web version of <strong>bibtex-tools</strong>, a collection of tools for cleaning up BibTeX files for biblatex, developed by <strong>Karl-Ludwig Besser (klb2)</strong>. All the cleaning is done by his Python code, which runs right in your browser.</p>
+      <div class="about-links">
+        <a class="about-link" href="https://github.com/klb2/bibtex-tools" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>
+          <span><strong>klb2/bibtex-tools</strong><small>The original command line tool by Karl-Ludwig Besser</small></span>
+        </a>
+        <a class="about-link" href="https://github.com/Ostpopcorn/bibtex-tools" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>
+          <span><strong>Ostpopcorn/bibtex-tools</strong><small>The code of this web version by Ostpopcorn</small></span>
+        </a>
+      </div>
+      <p class="about-small">Like the original, this web version is free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License v3</a>. It runs Python in your browser with <a href="https://pyodide.org" target="_blank" rel="noopener">Pyodide</a> (MPL-2.0), which includes the Python standard library (PSF License), and uses <a href="https://pypi.org/project/bibtexparser/" target="_blank" rel="noopener">bibtexparser</a> (LGPL-3.0 or BSD), <a href="https://pypi.org/project/pyiso4/" target="_blank" rel="noopener">pyiso4</a> (MIT), <a href="https://pypi.org/project/pyparsing/" target="_blank" rel="noopener">pyparsing</a> (MIT), <a href="https://pypi.org/project/Unidecode/" target="_blank" rel="noopener">Unidecode</a> (GPL-2.0 or later), <a href="https://pypi.org/project/click/" target="_blank" rel="noopener">click</a> (BSD-3-Clause), and <a href="https://pypi.org/project/feedparser/" target="_blank" rel="noopener">feedparser</a> (BSD-2-Clause) with <a href="https://pypi.org/project/feedparser-sgmllib/" target="_blank" rel="noopener">feedparser-sgmllib</a> (PSF-2.0).</p>
+      <p class="about-small" id="about-version"></p>
+    </div>
+  </dialog>
 
   <dialog class="dialog" id="dup-dialog" aria-labelledby="dup-title">
     <header class="dialog-head">

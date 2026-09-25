@@ -24,7 +24,8 @@ importlib.invalidate_caches()
 logging.getLogger().addHandler(logging.NullHandler())
 `);
   bridge = pyodide.pyimport("bibtextools.web");
-  postMessage({ type: "ready", defaults: JSON.parse(bridge.defaults()), version: manifest.version });
+  postMessage({ type: "ready", defaults: JSON.parse(bridge.defaults()), version: manifest.version,
+                pyodide: pyodide.version });
 }
 
 function process() {
