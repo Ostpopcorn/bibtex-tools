@@ -1,8 +1,10 @@
+import functools
 import logging
 import re
 
 import feedparser
 from bibtexparser.customization import string_to_latex#, getnames
+from pyiso4 import ltwa
 from pyiso4.ltwa import Abbreviate
 
 from .util import load_bib_file, write_bib_database, getnames
@@ -129,9 +131,25 @@ def get_arxiv_category(eprint):
     else:
         return primary_class
 
+def _open_utf8(file, mode="r", *args, **kwargs):
+    if "b" not in mode:
+        kwargs.setdefault("encoding", "utf-8")
+    return open(file, mode, *args, **kwargs)
+
+@functools.lru_cache(maxsize=None)
+def get_abbreviator():
+    """Load the ISO4 abbreviation list (LTWA) once, since this takes about a
+    second. pyiso4 opens its UTF-8 data files with the default encoding,
+    which fails on Windows (cp1252), so its open() is made to use UTF-8."""
+    ltwa.open = _open_utf8
+    try:
+        return Abbreviate.create()
+    finally:
+        del ltwa.open
+
 def abbreviate_journalname(entry):
     entry = entry.copy()
-    abbreviator = Abbreviate.create()
+    abbreviator = get_abbreviator()
     if entry[KEY_ENTRYTYPE] == "inproceedings":
         conf = entry.get(KEY_BOOKTITLE, False)
         if conf:
