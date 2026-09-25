@@ -6,8 +6,71 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 ### Added
+- Add a web app, which runs all commands in the browser with a live preview
+  of the result next to the original. It can be built with `web/build.py` and
+  is published with GitHub Pages.
+- Add `pipeline` module, which runs the steps of all commands at once on the
+  content of bib files, without asking for input. It keeps track of where each
+  entry comes from and which fields changed.
+- Add `util.parse_bib_string`, `util.parse_abbr_string`,
+  `util.format_bib_entries`, `util.get_entry_spans`, and
+  `util.get_field_spans`, which work on strings instead of files.
+- Add a `resolver` argument to `remove_duplicate_entries`, a function that
+  decides which entry of a pair of duplicate entries to remove.
+- Add `modernize_bib_file.modernize_entry`,
+  `filter_bib_file.filter_cited_entries`, and
+  `filter_bib_file.parse_bbl_keys`.
 - In the removal of duplicate entries, typing `0` will continue the process
-  without deletig any of the two entries.
+  without deletig any of the two entries. A skipped pair is not asked about
+  again.
+- Add `KEY_DATE`, `KEY_DOI`, and `KEY_ISBN` keywords to constants
+- Add new `filter-cited` command that keeps only the entries of a bib file
+  that are cited in a `.bbl` file (biblatex/biber or BibTeX). Entries that
+  cited entries refer to, e.g., via `crossref` or `xdata`, are kept as well.
+
+### Changed
+- Move `DEFAULT_REMOVE` from the command line modules to `const`.
+- Finding duplicate entries is several times faster for large bib files. The
+  duplicates are found only once instead of after every removed entry, and
+  titles are compared with a quick upper bound of their similarity first.
+- When renaming duplicate IDs in `clean` and `combine`, the first entry keeps
+  its ID, e.g., `key` and `key:b` instead of `key:a` and `key:b`. BibTeX and
+  biber use the first entry as well, so citations of `key` keep working. New
+  IDs no longer collide with existing ones, and the renamed IDs are shown as a
+  warning.
+- Duplicate entries are no longer removed by default in `clean`, `modernize`,
+  and `combine`, so entries are only removed when this is intended. The
+  `--force` option is replaced by `--remove-duplicates`, which removes the
+  entry with less fields of each pair, and `-i`/`--interactive`, which asks for
+  each pair (the previous default).
+- The `force` argument of `remove_duplicate_entries` is replaced by
+  `interactive` (default `False`), and the `force` argument of the main
+  functions by `remove_duplicates` and `interactive` (both default `False`).
+
+### Fixed
+- `modernize --iso4` no longer crashes on journal names that pyiso4 fails to
+  abbreviate, e.g., "Transactions on Different Work". They are kept, and a
+  warning is shown.
+- Abbreviations from an abbreviation file (`clean -a`) are no longer added to
+  the global strings of bibtexparser, where they were used for all bib files
+  that were loaded later.
+- Invalid input in the interactive prompt for removing duplicate entries (in
+  all commands), e.g., `3`, no longer crashes the program. The prompt is
+  repeated instead.
+- Entries containing `%` comments, e.g., a commented out field, are no longer
+  silently dropped when loading a bib file. Entries that still cannot be read,
+  e.g., due to a missing comma, are listed in a warning.
+- The removal of duplicate entries no longer treats different works as
+  duplicates: entries with different DOIs, arXiv IDs, or ISBNs, and entries
+  other than articles and conference papers from different years, e.g., two
+  editions of a book, are kept. Automatically removed entries are listed in
+  a warning.
+- The removal of duplicate entries no longer crashes on entries without a
+  title or author. The editor is used for entries without an author.
+- `modernize --iso4` no longer crashes with a `UnicodeDecodeError` on Windows,
+  where pyiso4 read its abbreviation list with the cp1252 encoding. The list
+  is also loaded only once instead of for every entry, which took about a
+  second per entry.
 
 ## [0.5.0] - 2024-10-15
 ### Added

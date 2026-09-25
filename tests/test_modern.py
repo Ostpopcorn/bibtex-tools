@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+
 import pytest
 
 import bibtexparser
@@ -12,6 +16,12 @@ BIB_MAIN = "old.bib"
 def test_main_modern(bib_file=BIB_MAIN):
     clean_entries = modernize_bib_file.modernize_bib_main(bib_file)
     assert len(clean_entries) == 6
+
+@pytest.mark.parametrize("remove_duplicates,num_entries", [(True, 7), (False, 9)])
+def test_main_modern_remove_duplicates(remove_duplicates, num_entries):
+    clean_entries = modernize_bib_file.modernize_bib_main(
+        "duplicate_content.bib", remove_duplicates=remove_duplicates)
+    assert len(clean_entries) == num_entries
 
 def test_replace_id(bib_file=BIB_MAIN):
     clean_entries = modernize_bib_file.modernize_bib_main(bib_file, replace_ids=True)
@@ -151,3 +161,25 @@ def test_journal_abbreviation(title, expected):
 #    entry = modernize_bib_file.abbreviate_journalname(entry)
 #    abbr_title = entry['journal']
 #    assert abbr_title == expected
+
+def test_journal_abbreviation_non_utf8_default_encoding():
+    """pyiso4 reads its data files with the default encoding, which is not
+    UTF-8 on Windows (cp1252) or in the C locale (ASCII)."""
+    env = dict(os.environ, PYTHONUTF8="0", PYTHONCOERCECLOCALE="0", LC_ALL="C")
+    code = ("from bibtextools.modernize_bib_file import abbreviate_journalname\n"
+            "entry = {'ENTRYTYPE': 'article', 'journal': 'Journal of Chemical Physics A'}\n"
+            "print(abbreviate_journalname(entry)['journal'])")
+    result = subprocess.run([sys.executable, "-c", code], env=env,
+                            capture_output=True, text=True)
+    assert result.stdout.strip() == "J. Chem. Phys. A", result.stderr
+
+def test_abbreviator_is_loaded_once():
+    assert modernize_bib_file.get_abbreviator() is modernize_bib_file.get_abbreviator()
+
+def test_journal_abbreviation_keeps_name_on_error(caplog):
+    # pyiso4 raises an IndexError for this name
+    entry = {"ID": "Key", "ENTRYTYPE": "article",
+             "journal": "Transactions on Different Work"}
+    result = modernize_bib_file.abbreviate_journalname(entry)
+    assert result["journal"] == "Transactions on Different Work"
+    assert any("Could not abbreviate" in r.getMessage() for r in caplog.records)

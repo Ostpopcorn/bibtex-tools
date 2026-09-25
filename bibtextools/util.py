@@ -1,43 +1,225 @@
+import logging
 import re
-import os.path
+from collections import Counter
 
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
-from bibtexparser import bibdatabase
 from bibtexparser.bibdatabase import BibDatabase
 
 from .const import KEY_ID
 
-def load_abbr(abbr_file, encoding="utf-8"):
-    with open(abbr_file, encoding=encoding) as _abbr_file:
-        parser = BibTexParser(homogenize_fields=True, common_strings=True)
-        abbr_database = bibtexparser.load(_abbr_file, parser=parser)
+def parse_abbr_string(abbr_str):
+    """Return the abbreviations (`@string`) of the content of a bib file."""
+    parser = BibTexParser(homogenize_fields=True, common_strings=True)
+    abbr_database = bibtexparser.loads(abbr_str, parser=parser)
     return abbr_database.strings
 
-def load_bib_file(bib_file, abbr=None, encoding="utf-8"):
+def load_abbr(abbr_file, encoding="utf-8"):
+    with open(abbr_file, encoding=encoding) as _abbr_file:
+        return parse_abbr_string(_abbr_file.read())
+
+def strip_comments(bib_str):
+    """Remove `%` comments between the fields of an entry, e.g., a commented
+    out field, which make bibtexparser silently skip the entry. Commented
+    lines between entries are removed as well. Field values are not changed.
+    """
+    stripped = []
+    depth = 0
+    in_quotes = False
+    idx = 0
+    while idx < len(bib_str):
+        char = bib_str[idx]
+        if char == "%" and not in_quotes and bib_str[idx-1] != "\\":
+            _line_start = bib_str.rfind("\n", 0, idx) + 1
+            if depth == 1 or (depth == 0 and
+                              not bib_str[_line_start:idx].strip()):
+                idx = bib_str.find("\n", idx)
+                if idx < 0:
+                    break
+                continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth = max(depth-1, 0)
+            if depth == 0:
+                in_quotes = False
+        elif char == '"' and depth == 1:
+            in_quotes = not in_quotes
+        stripped.append(char)
+        idx += 1
+    return "".join(stripped)
+
+_RE_ENTRY_HEAD = re.compile(r'^[ \t]*@[ \t]*(\w+)[ \t]*(?P<open>[{(])\s*(?P<id>[^\s,{}]+)\s*,',
+                            re.MULTILINE)
+_RE_COMMENT_HEAD = re.compile(r'^[ \t]*@[ \t]*comment[ \t]*\{',
+                              re.MULTILINE | re.IGNORECASE)
+
+_RE_BRACE = re.compile(r'[{}]')
+
+def _find_closing_brace(bib_str, idx):
+    """Return the index after the brace that closes the one before `idx`."""
+    depth = 1
+    for _match in _RE_BRACE.finditer(bib_str, idx):
+        depth += 1 if _match.group() == "{" else -1
+        if depth == 0:
+            return _match.end()
+    return len(bib_str)
+
+def get_entry_spans(bib_str):
+    """Return the ID, start, and end index of all entries that start on a
+    new line in a bib string. Unlike a full parser, this does not depend on
+    the content of the entries being valid."""
+    comment_spans = [(_match.start(), _find_closing_brace(bib_str, _match.end()))
+                     for _match in _RE_COMMENT_HEAD.finditer(bib_str)]
+    heads = []
+    for _match in _RE_ENTRY_HEAD.finditer(bib_str):
+        if _match.group(1).lower() in ("comment", "preamble", "string"):
+            continue
+        if any(_start < _match.start() < _end
+               for _start, _end in comment_spans):
+            continue
+        heads.append(_match)
+    spans = []
+    for _idx, _match in enumerate(heads):
+        _next = heads[_idx+1].start() if _idx+1 < len(heads) else len(bib_str)
+        _end = len(bib_str[:_next].rstrip())
+        if _match.group("open") == "{":
+            _end = min(_find_closing_brace(bib_str, _match.end("open")), _end)
+        spans.append((_match.group("id"), _match.start(), _end))
+    return spans
+
+# Field names as the parser uses them, see `parse_bib_string`
+_FIELD_ALIASES = {k: v for k, v in BibTexParser().alt_dict.items()
+                  if k != "keywords"}
+_RE_FIELD_NAME = re.compile(r'[^\s=,{}()"#%]+')
+_RE_BARE_VALUE = re.compile(r'[^\s,#{}()"%]+')
+
+def _skip_space(bib_str, idx, end):
+    """Skip whitespace and `%` comments."""
+    while idx < end:
+        if bib_str[idx].isspace():
+            idx += 1
+        elif bib_str[idx] == "%":
+            _newline = bib_str.find("\n", idx, end)
+            idx = end if _newline < 0 else _newline + 1
+        else:
+            break
+    return idx
+
+def _skip_value_part(bib_str, idx, end):
+    """Return the index after a braced, quoted, or bare value."""
+    if bib_str[idx] == "{":
+        return min(_find_closing_brace(bib_str, idx+1), end)
+    if bib_str[idx] == '"':
+        depth = 0
+        for idx in range(idx+1, end):
+            if bib_str[idx] == '"' and depth == 0:
+                return idx + 1
+            depth += {"{": 1, "}": -1}.get(bib_str[idx], 0)
+        return end
+    _match = _RE_BARE_VALUE.match(bib_str, idx, end)
+    return _match.end() if _match else idx
+
+def get_field_spans(bib_str, start=0, end=None):
+    """Return the fields of the entry between `start` and `end` of a bib
+    string, as name -> (start, end, value start, value end), by the field
+    names that the parser uses. A field spans from its name to the end of
+    its value. Unlike a full parser, this does not depend on the fields being
+    on separate lines, and skips `%` comments between fields."""
+    if end is None:
+        end = len(bib_str)
+    spans = {}
+    _match = _RE_ENTRY_HEAD.match(bib_str, start, end)
+    idx = bib_str.find(",", _match.end("id") if _match else start, end)
+    while 0 <= idx < end:
+        idx = _skip_space(bib_str, idx+1, end)
+        _name = _RE_FIELD_NAME.match(bib_str, idx, end)
+        if not _name:
+            break
+        idx = _skip_space(bib_str, _name.end(), end)
+        if idx >= end or bib_str[idx] != "=":
+            break
+        idx = value_start = value_end = _skip_space(bib_str, idx+1, end)
+        # a value can be a concatenation, e.g., "IEEE " # jnl
+        while idx < end:
+            value_end = _skip_value_part(bib_str, idx, end)
+            if value_end == idx:
+                break
+            idx = _skip_space(bib_str, value_end, end)
+            if idx < end and bib_str[idx] == "#":
+                idx = _skip_space(bib_str, idx+1, end)
+            else:
+                break
+        _key = _name.group().lower()
+        spans[_FIELD_ALIASES.get(_key, _key)] = (_name.start(), value_end,
+                                                 value_start, value_end)
+        idx = _skip_space(bib_str, value_end, end)
+        if idx >= end or bib_str[idx] != ",":
+            break
+    return spans
+
+def get_entry_ids(bib_str):
+    """Return the IDs of all entries that start on a new line in a bib
+    string. Unlike a full parser, this does not depend on the content of the
+    entries being valid."""
+    return [_id for _id, _start, _end in get_entry_spans(bib_str)]
+
+def _read_abbr(abbr, encoding="utf-8"):
+    if abbr is None or isinstance(abbr, dict):
+        return abbr
+    return load_abbr(abbr, encoding=encoding)
+
+def parse_bib_string(bib_str, abbr=None, source="<string>",
+                     return_skipped=False):
+    """Parse the content of a bib file. The abbreviations `abbr`, e.g., from
+    `load_abbr`, are expanded in addition to the common strings, without
+    changing the strings of later calls. Entries that cannot be read are
+    listed in a warning, and returned if `return_skipped` is set."""
+    logger = logging.getLogger('load_bib_file')
+    bib_str = strip_comments(bib_str)
+    parser = BibTexParser(homogenize_fields=True, common_strings=True,
+                          ignore_nonstandard_types=False)
+    parser.alt_dict.pop("keywords")
     if abbr is not None:
-        if os.path.isfile(abbr):
-            abbr = load_abbr(abbr, encoding=encoding)
-        bibdatabase.COMMON_STRINGS.update(abbr)
-    with open(bib_file, encoding=encoding) as _bib_file:
-        parser = BibTexParser(homogenize_fields=True, common_strings=True,
-                              ignore_nonstandard_types=False)
-        parser.alt_dict.pop("keywords")
-        bib_database = bibtexparser.load(_bib_file, parser=parser)
+        parser.bib_database.strings.update(abbr)
+    bib_database = bibtexparser.loads(bib_str, parser=parser)
+    skipped = (Counter(get_entry_ids(bib_str))
+               - Counter([x[KEY_ID] for x in bib_database.entries]))
+    if skipped:
+        logger.warning("Could not read %d entries from %s. They are NOT "
+                       "included in the result. Check them for syntax "
+                       "errors, e.g., a missing comma between fields: %s",
+                       sum(skipped.values()), source,
+                       ", ".join(skipped.elements()))
+    if return_skipped:
+        return bib_database, list(skipped.elements())
     return bib_database
 
+def load_bib_file(bib_file, abbr=None, encoding="utf-8"):
+    abbr = _read_abbr(abbr, encoding=encoding)
+    with open(bib_file, encoding=encoding) as _bib_file:
+        bib_str = _bib_file.read()
+    return parse_bib_string(bib_str, abbr=abbr, source=bib_file)
+
+
+def get_bib_writer(order_entries_by=(KEY_ID,)):
+    writer = BibTexWriter()
+    writer.order_entries_by = order_entries_by
+    writer.add_trailing_comma = True
+    writer.indent = "\t"  # "  "
+    return writer
+
+def format_bib_entries(entries, order_entries_by=(KEY_ID,)):
+    """Return the content of a bib file with the given entries."""
+    clean_database = BibDatabase()
+    clean_database.entries = entries
+    return get_bib_writer(order_entries_by).write(clean_database)
 
 def write_bib_database(entries, out_file, encoding="utf-8",
                        order_entries_by=(KEY_ID,)):
-    clean_database = BibDatabase()
-    clean_database.entries = entries
     with open(out_file, 'w', encoding=encoding) as _out_file:
-        writer = BibTexWriter()
-        writer.order_entries_by = order_entries_by
-        writer.add_trailing_comma = True
-        writer.indent = "\t"  # "  "
-        _out_file.write(writer.write(clean_database))
+        _out_file.write(format_bib_entries(entries, order_entries_by))
 
 def getnames(names):
     """This function is a slight modification of the function from bibtexparser
