@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+
 import pytest
 
 import bibtexparser
@@ -157,3 +161,17 @@ def test_journal_abbreviation(title, expected):
 #    entry = modernize_bib_file.abbreviate_journalname(entry)
 #    abbr_title = entry['journal']
 #    assert abbr_title == expected
+
+def test_journal_abbreviation_non_utf8_default_encoding():
+    """pyiso4 reads its data files with the default encoding, which is not
+    UTF-8 on Windows (cp1252) or in the C locale (ASCII)."""
+    env = dict(os.environ, PYTHONUTF8="0", PYTHONCOERCECLOCALE="0", LC_ALL="C")
+    code = ("from bibtextools.modernize_bib_file import abbreviate_journalname\n"
+            "entry = {'ENTRYTYPE': 'article', 'journal': 'Journal of Chemical Physics A'}\n"
+            "print(abbreviate_journalname(entry)['journal'])")
+    result = subprocess.run([sys.executable, "-c", code], env=env,
+                            capture_output=True, text=True)
+    assert result.stdout.strip() == "J. Chem. Phys. A", result.stderr
+
+def test_abbreviator_is_loaded_once():
+    assert modernize_bib_file.get_abbreviator() is modernize_bib_file.get_abbreviator()

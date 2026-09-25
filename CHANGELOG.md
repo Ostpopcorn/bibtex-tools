@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   a warning.
 - The removal of duplicate entries no longer crashes on entries without a
   title or author. The editor is used for entries without an author.
+- `modernize --iso4` no longer crashes with a `UnicodeDecodeError` on Windows,
+  where pyiso4 read its abbreviation list with the cp1252 encoding. The list
+  is also loaded only once instead of for every entry, which took about a
+  second per entry.
 
 ## [0.5.0] - 2024-10-15
 ### Added
