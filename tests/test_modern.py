@@ -175,3 +175,11 @@ def test_journal_abbreviation_non_utf8_default_encoding():
 
 def test_abbreviator_is_loaded_once():
     assert modernize_bib_file.get_abbreviator() is modernize_bib_file.get_abbreviator()
+
+def test_journal_abbreviation_keeps_name_on_error(caplog):
+    # pyiso4 raises an IndexError for this name
+    entry = {"ID": "Key", "ENTRYTYPE": "article",
+             "journal": "Transactions on Different Work"}
+    result = modernize_bib_file.abbreviate_journalname(entry)
+    assert result["journal"] == "Transactions on Different Work"
+    assert any("Could not abbreviate" in r.getMessage() for r in caplog.records)
