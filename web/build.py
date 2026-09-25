@@ -104,12 +104,38 @@ def build_wheels(out_dir):
     return wheels
 
 
+def _versioned(text, link, content):
+    """Add a hash of the content to a link in the text, e.g., app.js?v=1a2b,
+    so that browsers load the new file after an update instead of an old
+    cached one, which may not fit the new index.html."""
+    version = hashlib.sha256(content.encode("utf-8")).hexdigest()[:10]
+    if text.count(link) != 1:
+        raise RuntimeError("Expected {} once to add its version".format(link))
+    # the link ends with a quote, e.g., src="app.js"
+    return text.replace(link, "{}?v={}{}".format(link[:-1], version, link[-1]))
+
+def copy_static(out_dir):
+    files = {}
+    for name in STATIC_FILES:
+        with open(os.path.join(WEB_DIR, name), encoding="utf-8") as _file:
+            files[name] = _file.read()
+    files["app.js"] = _versioned(files["app.js"], '"./worker.js"',
+                                 files["worker.js"])
+    files["index.html"] = _versioned(files["index.html"], 'href="style.css"',
+                                     files["style.css"])
+    files["index.html"] = _versioned(files["index.html"], 'src="app.js"',
+                                     files["app.js"])
+    for name, content in files.items():
+        with open(os.path.join(out_dir, name), "w", encoding="utf-8",
+                  newline="\n") as _file:
+            _file.write(content)
+
+
 def build(out_dir):
     if os.path.exists(out_dir):
         shutil.rmtree(out_dir)
     os.makedirs(out_dir)
-    for name in STATIC_FILES:
-        shutil.copy(os.path.join(WEB_DIR, name), out_dir)
+    copy_static(out_dir)
     os.makedirs(os.path.join(out_dir, "examples"))
     for name in EXAMPLES:
         shutil.copy(os.path.join(ROOT_DIR, "examples", name),
