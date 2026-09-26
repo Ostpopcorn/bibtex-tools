@@ -81,6 +81,29 @@ field) in your bib file `literature.bib`, you could use the following command
 bibtex-tools modernize --arxiv literature.bib
 ```
 
+#### arXiv Preprints
+With `--arxiv-style`, all arXiv preprints are written in the same style,
+whether they come from arXiv, Google Scholar, DBLP, or elsewhere.  Published
+papers that also have an eprint are not changed.
+* `--arxiv-style eprint` writes them as `@misc` with the ID in the `eprint`
+  field, like arXiv exports them:
+  ```bibtex
+  @misc{Key,
+    ...
+    eprint = {2009.09852},
+    archiveprefix = {arXiv},
+    primaryclass = {cs.IT},
+  }
+  ```
+* `--arxiv-style journal` writes them as `@article` with the ID in the
+  `journal` field, like Google Scholar exports them:
+  ```bibtex
+  @article{Key,
+    ...
+    journal = {arXiv preprint arXiv:2009.09852},
+  }
+  ```
+
 
 ### Cleaning Bib Files
 The command `bibtex-tools clean` allows to clean a bib-files. This includes

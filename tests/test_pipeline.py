@@ -113,6 +113,18 @@ def test_added_fields_with_arxiv_lookup():
     assert added and all(_out.added == {"archiveprefix", "primaryclass"}
                          for _out in added)
 
+def test_arxiv_style_changes():
+    options = pipeline.PipelineOptions(arxiv_style="journal")
+    result = pipeline.run_pipeline(_sources("arxiv.bib"), options)
+    by_id = {_out.entry[KEY_ID]: _out for _out in result.entries}
+    converted = by_id["EprintStyle"]
+    assert converted.type_changed and converted.added == {"journal"}
+    assert converted.removed == {"eprint", "archiveprefix", "primaryclass"}
+    # already in the style
+    assert not by_id["GoogleScholar"].type_changed
+    assert not by_id["GoogleScholar"].changed
+    assert not by_id["Published"].type_changed
+
 def test_entry_lines():
     options = pipeline.PipelineOptions(sort_by_id=True)
     result = pipeline.run_pipeline(_sources(BIB_MAIN, "unicode.bib"), options)

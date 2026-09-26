@@ -102,3 +102,17 @@ def test_run_changed_is_what_is_shown():
     # that are expanded and renamed fields are
     assert out["changed"] == ["month", "url"]
     assert out["fields"]["month"] == [1, 1]
+
+def test_run_arxiv_style():
+    request = {"sources": [_source("arxiv.bib")],
+               "options": {"arxiv_style": "eprint", "arxiv": True}}
+    response = _run(request)
+    out = next(e for e in response["entries"] if e["id"] == "GoogleScholar")
+    assert out["type_changed"] and out["removed"] == ["journal"]
+    assert out["added"] == ["archiveprefix", "eprint"]
+    # the converted preprints need their categories as well
+    assert "2101.00001" in response["eprints"]
+    request["options"]["arxiv_style"] = "journal"
+    response = _run(request)
+    assert "2101.00001" not in response["eprints"]
+    assert "2009.09852" in response["eprints"]  # the published article

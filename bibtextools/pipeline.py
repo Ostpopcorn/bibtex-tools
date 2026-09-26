@@ -9,8 +9,8 @@ changed. The steps are run in the following order:
 2. combine the entries of all sources (`combine`)
 3. keep only cited entries (`filter-cited`)
 4. remove duplicate entries
-5. clean the fields, e.g., months and pages, and add arXiv categories
-   (`modernize`)
+5. clean the fields, e.g., months and pages, write arXiv preprints in one
+   style, and add arXiv categories (`modernize`)
 6. remove fields
 7. replace the IDs (`modernize`)
 8. abbreviate journal names (`modernize`)
@@ -55,6 +55,9 @@ class PipelineOptions:
     arxiv: bool = False
     #: Returns the primary category of an arXiv eprint, or None
     arxiv_lookup: Optional[Callable] = None
+    #: How arXiv preprints are written, one of
+    #: `modernize_bib_file.ARXIV_STYLES`, or None to keep them as they are
+    arxiv_style: Optional[str] = None
     remove_fields: tuple = ()
     replace_ids: bool = False
     iso4: bool = False
@@ -73,6 +76,8 @@ class OutputEntry:
     #: First line of the entry in the output, starting at 1
     line: int
     id_changed: bool
+    #: The entry type changed, e.g., from @misc to @article
+    type_changed: bool
     added: set
     changed: set
     removed: set
@@ -220,6 +225,7 @@ class Pipeline:
                                      arxiv=options.arxiv, iso4=options.iso4,
                                      clean_fields=options.clean_fields,
                                      arxiv_lookup=options.arxiv_lookup,
+                                     arxiv_style=options.arxiv_style,
                                      shield_title=options.shield_title)
             if options.replace_unicode:
                 _entry = replace_unicode_in_entry(_entry)
@@ -248,6 +254,8 @@ class Pipeline:
             output.append(OutputEntry(
                 origin=_origin, entry=_entry, text=_text, line=line,
                 id_changed=_entry[KEY_ID] != _original[KEY_ID],
+                type_changed=(_entry[KEY_ENTRYTYPE].lower()
+                              != _original[KEY_ENTRYTYPE].lower()),
                 added=_added, changed=_changed, removed=_removed))
             line += _text.count("\n") + 1
         text = "\n".join(_out.text for _out in output)

@@ -25,6 +25,16 @@ def test_main_modern(tmpdir, bib_file=BIB_MAIN):
         bib_database = bibtexparser.load(_bib_file, parser=parser)
     assert (len(bib_database.get_entry_list()) == 6) and (result.exit_code == 0)
 
+def test_main_modern_arxiv_style(tmpdir):
+    out_file = os.path.join(tmpdir, "modern.bib")
+    runner = CliRunner()
+    result = runner.invoke(main, f'-o "{out_file}" modernize --arxiv-style eprint arxiv.bib')
+    with open(out_file, encoding="utf-8") as _bib_file:
+        entries = bibtexparser.load(_bib_file).get_entry_list()
+    preprint = next(_entry for _entry in entries if _entry["ID"] == "GoogleScholar")
+    assert result.exit_code == 0, result.output
+    assert preprint["ENTRYTYPE"] == "misc" and preprint["eprint"] == "2101.00001"
+
 @pytest.mark.parametrize("options,num_entries",
                          [("", 9), ("--remove-duplicates", 7), ("-i", 7),
                           ("--remove-duplicates -i", 7)])

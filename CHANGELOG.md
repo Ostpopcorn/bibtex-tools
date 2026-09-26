@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   without deletig any of the two entries. A skipped pair is not asked about
   again.
 - Add `KEY_DATE`, `KEY_DOI`, and `KEY_ISBN` keywords to constants
+- Add `--arxiv-style` option to `modernize`, which writes all arXiv preprints
+  as `@misc` with the ID in the `eprint` field (`eprint`), like arXiv exports
+  them, or as `@article` with `arXiv preprint arXiv:<ID>` as journal
+  (`journal`), like Google Scholar exports them. Preprints from DBLP (`CoRR`),
+  ADS, and arXiv DOIs are recognized as well. Published papers with an eprint
+  are not changed. In Python, use `modernize_entry(..., arxiv_style=...)` or
+  `convert_arxiv_style`.
 - Add new `filter-cited` command that keeps only the entries of a bib file
   that are cited in a `.bbl` file (biblatex/biber or BibTeX). Entries that
   cited entries refer to, e.g., via `crossref` or `xdata`, are kept as well.
@@ -48,6 +55,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- Cleaning the `eprint` field removes only the prefix `arXiv:`. Before,
+  letters of `arXiv:` were removed from both ends, e.g., `arXiv:astro-ph/0601001`
+  became `stro-ph/0601001`.
+- `modernize --iso4` no longer abbreviates arXiv as a journal, e.g., in
+  `arXiv preprint arXiv:2009.09852`.
 - `modernize --iso4` no longer crashes on journal names that pyiso4 fails to
   abbreviate, e.g., "Transactions on Different Work". They are kept, and a
   warning is shown.
