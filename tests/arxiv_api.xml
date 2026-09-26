@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- An answer of the arXiv API (export.arxiv.org/api/query?id_list=2009.09852),
+     shortened to the parts that bibtextools reads -->
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="html">ArXiv Query: search_query=&amp;id_list=2009.09852&amp;start=0&amp;max_results=10</title>
+  <opensearch:totalResults xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">1</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/2009.09852v2</id>
+    <title>Copula-Based Bounds for Multi-User Communications -- Part I: Average Performance</title>
+    <author>
+      <name>Eduard A. Jorswieck</name>
+    </author>
+    <author>
+      <name>Karl-Ludwig Besser</name>
+    </author>
+    <link href="http://arxiv.org/abs/2009.09852v2" rel="alternate" type="text/html"/>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="cs.IT" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.IT" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="math.IT" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>
