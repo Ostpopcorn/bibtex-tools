@@ -9,6 +9,7 @@ from bibtexparser.bparser import BibTexParser
 
 from bibtextools import modernize_bib_file
 from bibtextools.const import KEY_ENTRYTYPE
+from bibtextools.util import load_bib_file
 
 
 BIB_MAIN = "old.bib"
@@ -183,3 +184,108 @@ def test_journal_abbreviation_keeps_name_on_error(caplog):
     result = modernize_bib_file.abbreviate_journalname(entry)
     assert result["journal"] == "Transactions on Different Work"
     assert any("Could not abbreviate" in r.getMessage() for r in caplog.records)
+
+
+ARXIV_BIB = "arxiv.bib"
+# ID -> (arXiv ID, primary category) of the preprints in ARXIV_BIB
+PREPRINTS = {"EprintStyle": ("2009.09852", "cs.IT"),
+             "GoogleScholar": ("2101.00001", None),
+             "WithCategory": ("2101.00002", "math.PR"),
+             "Dblp": ("2101.00003", None),
+             "Ads": ("2101.00004", "cs.LG"),
+             "DataCite": ("2101.00005", None),
+             "OldId": ("hep-th/9901001", None),
+             "Biblatex": ("2101.00006", "eess.SP")}
+NOT_PREPRINTS = ("Published", "Conference", "OtherArchive", "Website")
+ARXIV_FIELDS = {"eprint", "archiveprefix", "primaryclass", "eprinttype",
+                "eprintclass"}
+
+def _arxiv_entries():
+    entries = load_bib_file(ARXIV_BIB).get_entry_list()
+    return {_entry["ID"]: _entry for _entry in entries}
+
+def test_get_arxiv_preprint():
+    found = {_key: modernize_bib_file.get_arxiv_preprint(_entry)
+             for _key, _entry in _arxiv_entries().items()}
+    assert found == {**PREPRINTS, **dict.fromkeys(NOT_PREPRINTS)}
+
+@pytest.mark.parametrize("key", PREPRINTS)
+def test_arxiv_journal_style(key):
+    entry = modernize_bib_file.convert_arxiv_style(_arxiv_entries()[key],
+                                                   "journal")
+    assert entry[KEY_ENTRYTYPE] == "article"
+    assert entry["journal"] == "arXiv preprint arXiv:" + PREPRINTS[key][0]
+    assert not set(entry) & (ARXIV_FIELDS | {"publisher", "volume"})
+
+@pytest.mark.parametrize("key", PREPRINTS)
+def test_arxiv_eprint_style(key):
+    entry = modernize_bib_file.convert_arxiv_style(_arxiv_entries()[key],
+                                                   "eprint")
+    arxiv_id, category = PREPRINTS[key]
+    assert entry[KEY_ENTRYTYPE] == "misc"
+    assert entry["eprint"] == arxiv_id and entry["archiveprefix"] == "arXiv"
+    assert entry.get("primaryclass") == category
+    assert not set(entry) & {"journal", "eprinttype", "eprintclass",
+                             "publisher", "volume"}
+
+@pytest.mark.parametrize("style", modernize_bib_file.ARXIV_STYLES)
+def test_arxiv_style_keeps_other_entries(style):
+    entries = _arxiv_entries()
+    for _key in NOT_PREPRINTS:
+        entry = dict(entries[_key])
+        assert modernize_bib_file.convert_arxiv_style(entry, style) == entries[_key]
+
+@pytest.mark.parametrize("style", modernize_bib_file.ARXIV_STYLES)
+def test_arxiv_style_twice_is_the_same(style):
+    for _entry in _arxiv_entries().values():
+        once = modernize_bib_file.convert_arxiv_style(dict(_entry), style)
+        assert modernize_bib_file.convert_arxiv_style(dict(once), style) == once
+
+def test_arxiv_style_back_and_forth():
+    entry = _arxiv_entries()["GoogleScholar"]
+    converted = modernize_bib_file.convert_arxiv_style(dict(entry), "eprint")
+    assert modernize_bib_file.convert_arxiv_style(converted, "journal") == entry
+
+def test_arxiv_style_keeps_doi_and_url():
+    entry = modernize_bib_file.convert_arxiv_style(
+        _arxiv_entries()["DataCite"], "journal")
+    assert entry["doi"] == "10.48550/ARXIV.2101.00005"
+    assert entry["url"] == "https://arxiv.org/abs/2101.00005"
+
+def test_arxiv_style_unknown():
+    with pytest.raises(ValueError):
+        modernize_bib_file.convert_arxiv_style({}, "other")
+
+@pytest.mark.parametrize("style,categories",
+                         [("eprint", {"GoogleScholar": "cs.IT",
+                                      "Published": "cs.IT"}),
+                          ("journal", {"GoogleScholar": None,
+                                       "Published": "cs.IT"})])
+def test_arxiv_style_with_category_lookup(style, categories):
+    entries = _arxiv_entries()
+    for _key, _category in categories.items():
+        entry = modernize_bib_file.modernize_entry(
+            entries[_key], arxiv=True, arxiv_style=style,
+            arxiv_lookup=lambda eprint: "cs.IT")
+        assert entry.get("primaryclass") == _category
+
+def test_main_arxiv_style():
+    entries = modernize_bib_file.modernize_bib_main(ARXIV_BIB,
+                                                    arxiv_style="journal")
+    journals = [_entry["journal"] for _entry in entries
+                if _entry.get("journal", "").startswith("arXiv preprint")]
+    assert len(journals) == len(PREPRINTS)
+
+def test_iso4_keeps_arxiv_journal():
+    entry = {"ID": "Key", "ENTRYTYPE": "article",
+             "journal": "arXiv preprint arXiv:2101.00001"}
+    result = modernize_bib_file.abbreviate_journalname(entry)
+    assert result["journal"] == "arXiv preprint arXiv:2101.00001"
+
+@pytest.mark.parametrize("eprint,expected",
+                         [("arXiv:2009.09852", "2009.09852"),
+                          ("arXiv: 2009.09852", "2009.09852"),
+                          ("2009.09852", "2009.09852"),
+                          ("arXiv:astro-ph/0601001", "astro-ph/0601001")])
+def test_clean_eprint(eprint, expected):
+    assert modernize_bib_file.clean_eprint(eprint) == expected

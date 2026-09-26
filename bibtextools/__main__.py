@@ -2,7 +2,7 @@ import os.path
 import argparse
 import logging
 
-from .modernize_bib_file import modernize_bib_main
+from .modernize_bib_file import ARXIV_STYLES, modernize_bib_main
 from .clean_bib_file import clean_bib_file_main
 from .combine_bib_files import combine_bib_files_main
 from .filter_bib_file import filter_cited_main
@@ -32,6 +32,8 @@ def get_arg_parser():
                         help="If this is set, the IDs of the bib entries are replaced by a fixed scheme")
     parser_modern.add_argument("--arxiv", action="store_true",
                         help="If this is set, the primaryClasses are downloaded for arXiv preprints. Requires an eprint field in the entry")
+    parser_modern.add_argument("--arxiv-style", choices=ARXIV_STYLES,
+                        help="Write arXiv preprints as @misc with the ID in the eprint field, like arXiv exports them (eprint), or as @article with 'arXiv preprint arXiv:ID' as journal, like Google Scholar exports them (journal). Published entries are not changed.")
     parser_modern.add_argument("--shield_title", action="store_true",
                         help="If this is set, the title field will be surrounded by curly brackets.")
     parser_modern.add_argument("--iso4", action="store_true",
