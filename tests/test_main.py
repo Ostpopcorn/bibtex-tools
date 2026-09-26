@@ -24,6 +24,16 @@ def test_main_modern(tmpdir, bib_file=BIB_MAIN):
         bib_database = bibtexparser.load(_bib_file, parser=parser)
     assert len(bib_database.get_entry_list()) == 6
 
+def test_main_modern_arxiv_style(tmpdir):
+    out_file = os.path.join(tmpdir, "modern.bib")
+    sys.argv = [sys.argv[0], 'modernize', '--arxiv-style', 'journal',
+                'arxiv.bib', '-o', out_file]
+    main()
+    with open(out_file, encoding="utf-8") as _bib_file:
+        entries = bibtexparser.load(_bib_file).get_entry_list()
+    journals = [_entry.get("journal", "") for _entry in entries]
+    assert journals.count("arXiv preprint arXiv:2009.09852") == 1
+
 @pytest.mark.parametrize("options,num_entries",
                          [([], 9), (["--remove-duplicates"], 7)])
 def test_main_clean_remove_duplicates(tmpdir, options, num_entries):

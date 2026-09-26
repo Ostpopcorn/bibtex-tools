@@ -7,7 +7,7 @@ from . import __version__
 from .clean_bib_file import clean_bib_file_main
 from .combine_bib_files import combine_bib_files_main
 from .filter_bib_file import filter_cited_main
-from .modernize_bib_file import modernize_bib_main
+from .modernize_bib_file import ARXIV_STYLES, modernize_bib_main
 from .util import write_bib_database
 from .const import DEFAULT_REMOVE
 
@@ -37,13 +37,15 @@ def main(ctx, output, verbose):
 @click.option("--remove-duplicates", is_flag=True, default=False)
 @click.option("-i", "--interactive", is_flag=True, default=False)
 @click.option("--arxiv", is_flag=True, default=False)
+@click.option("--arxiv-style", type=click.Choice(ARXIV_STYLES), default=None)
 @click.option("--shield_title", is_flag=True, default=False)
 @click.option("--iso4", is_flag=True, default=False)
 def modernize(ctx, bib_file, remove_fields, replace_ids, remove_duplicates,
-              interactive, arxiv, shield_title, iso4):
+              interactive, arxiv, arxiv_style, shield_title, iso4):
     clean_entries = modernize_bib_main(remove_fields=remove_fields,
                                        replace_ids=replace_ids,
                                        arxiv=arxiv,
+                                       arxiv_style=arxiv_style,
                                        shield_title=shield_title,
                                        bib_file=bib_file,
                                        iso4=iso4,
