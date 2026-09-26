@@ -13,6 +13,7 @@ from bibtextools.util import load_bib_file
 
 
 BIB_MAIN = "old.bib"
+ARXIV_API_ANSWER = "arxiv_api.xml"
 
 def test_main_modern(bib_file=BIB_MAIN):
     clean_entries = modernize_bib_file.modernize_bib_main(bib_file)
@@ -33,11 +34,38 @@ def test_replace_id(bib_file=BIB_MAIN):
                         for k in clean_entries])
     assert cleaned_keys == expected_keys
 
-def test_arxiv_primaryclass(bib_file=BIB_MAIN):
+@pytest.fixture
+def arxiv_api(monkeypatch):
+    """Answer requests to the arXiv API with a stored answer, since arXiv does
+    not always answer the tests in time. Returns the requested URLs."""
+    import feedparser
+    parse = feedparser.parse
+    urls = []
+    def _parse(url, *args, **kwargs):
+        urls.append(url)
+        return parse(ARXIV_API_ANSWER)
+    monkeypatch.setattr(feedparser, "parse", _parse)
+    return urls
+
+def test_arxiv_primaryclass(arxiv_api, bib_file=BIB_MAIN):
     clean_entries = modernize_bib_file.modernize_bib_main(bib_file, arxiv=True)
     _entry = [k for k in clean_entries
               if k[modernize_bib_file.KEY_ID] == "Besser2020CLpart1"][0]
     assert _entry[modernize_bib_file.KEY_CATEGORY] == "cs.IT"
+    assert _entry[modernize_bib_file.KEY_ARCHIVE] == "arXiv"
+    assert arxiv_api == ["http://export.arxiv.org/api/query?id_list=2009.09852"]
+
+def test_arxiv_primaryclass_without_answer(monkeypatch):
+    """Without an answer, e.g., if arXiv is not reachable, feedparser returns
+    no entries, and the entry is kept as it is."""
+    import feedparser
+    monkeypatch.setattr(feedparser, "parse",
+                        lambda url, *args, **kwargs: feedparser.FeedParserDict(
+                            bozo=1, entries=[]))
+    assert modernize_bib_file.get_arxiv_category("2009.09852") is None
+    entry = modernize_bib_file.modernize_entry(
+        {"ID": "Key", "ENTRYTYPE": "misc", "eprint": "2009.09852"}, arxiv=True)
+    assert entry == {"ID": "Key", "ENTRYTYPE": "misc", "eprint": "2009.09852"}
 
 def test_journal_abbreviation(bib_file=BIB_MAIN):
     from bibtextools.util import load_bib_file
