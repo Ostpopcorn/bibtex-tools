@@ -11,7 +11,7 @@ from bibtexparser.bibdatabase import UndefinedString
 
 from .const import DEFAULT_REMOVE, KEY_CATEGORY, KEY_EPRINT, KEY_ID
 from .filter_bib_file import parse_bbl_keys
-from .modernize_bib_file import CLEAN_FUNC
+from .modernize_bib_file import CLEAN_FUNC, convert_arxiv_style
 from .pipeline import DUPLICATES_KEEP, Pipeline, PipelineOptions
 from .util import (format_bib_entries, get_entry_spans, get_field_spans,
                    parse_abbr_string)
@@ -113,6 +113,7 @@ def _output_entry(out, original, located):
             "text": out.text,
             "line": out.line,
             "id_changed": out.id_changed,
+            "type_changed": out.type_changed,
             "added": sorted(added),
             "changed": sorted(changed),
             "removed": sorted(removed),
@@ -154,6 +155,7 @@ def _run(request):
         shield_title=opts.get("shield_title", False),
         arxiv=opts.get("arxiv", False),
         arxiv_lookup=lambda eprint: categories.get(normalize_eprint(eprint)),
+        arxiv_style=opts.get("arxiv_style"),
         remove_fields=tuple(opts.get("remove_fields", ())),
         replace_ids=opts.get("replace_ids", False),
         iso4=opts.get("iso4", False),
@@ -169,6 +171,9 @@ def _run(request):
     eprints = set()
     for _entry in result.originals.values():
         fields.update(_entry)
+        # The eprints after changing the style of arXiv preprints
+        if options.arxiv_style is not None:
+            _entry = convert_arxiv_style(dict(_entry), options.arxiv_style)
         if KEY_EPRINT in _entry and KEY_CATEGORY not in _entry:
             eprints.add(normalize_eprint(_entry[KEY_EPRINT]))
     sources_out = [{"name": _name,

@@ -126,6 +126,15 @@
           <label class="check"><input type="checkbox" data-setting="modernize.ids"> <span>Generate IDs</span></label>
           <label class="check" title="Looks up the eprint IDs on arxiv.org"><input type="checkbox" data-setting="modernize.arxiv"> <span>arXiv categories <span class="muted" id="arxiv-state"></span></span></label>
         </div>
+        <div class="option-row">
+          <span class="option-label">arXiv preprints</span>
+          <div class="segmented" role="radiogroup" aria-label="Style of arXiv preprints">
+            <label title="Keep arXiv preprints as they are"><input type="radio" name="arxiv-style" value="keep"><span>Keep</span></label>
+            <label title="@misc with the ID in the eprint field, like arXiv exports them"><input type="radio" name="arxiv-style" value="eprint"><span>eprint</span></label>
+            <label title="@article with the ID in the journal field, like Google Scholar exports them"><input type="radio" name="arxiv-style" value="journal"><span>journal</span></label>
+          </div>
+        </div>
+        <p class="hint" id="arxiv-style-hint" hidden></p>
       </div>
     </article>
 

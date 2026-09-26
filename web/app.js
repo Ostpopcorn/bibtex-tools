@@ -9,6 +9,12 @@ const SETTINGS_KEY = "bibtextools.settings.v2";
 const ARXIV_KEY = "bibtextools.arxiv.v1";
 const THEME_KEY = "bibtextools.theme";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
+const ARXIV_STYLES = ["keep", "eprint", "journal"];
+const ARXIV_STYLE_HINTS = {
+  keep: "",
+  eprint: "<code>@misc</code> with <code>eprint = {2009.09852}</code>, like arXiv. Published papers are not changed.",
+  journal: "<code>@article</code> with <code>journal = {arXiv preprint arXiv:2009.09852}</code>, like Google Scholar. Published papers are not changed.",
+};
 
 // Replaced by the defaults of bibtextools once Python is ready
 let defaults = {
@@ -19,7 +25,7 @@ let defaults = {
 const DEFAULT_SETTINGS = {
   filter: { enabled: false },
   clean: { enabled: false, unicode: false },
-  modernize: { enabled: true, fields: null, shield: true, iso4: false, ids: false, arxiv: false },
+  modernize: { enabled: true, fields: null, shield: true, iso4: false, ids: false, arxiv: false, arxivStyle: "keep" },
   remove: { enabled: true, fields: null },
   duplicates: { mode: "choose", rename: true },
   sort: true,
@@ -99,6 +105,9 @@ function merge(base, extra) {
 function validSettings(settings) {
   if (!DUPLICATE_MODES.includes(settings.duplicates.mode)) {
     settings.duplicates.mode = DEFAULT_SETTINGS.duplicates.mode;
+  }
+  if (!ARXIV_STYLES.includes(settings.modernize.arxivStyle)) {
+    settings.modernize.arxivStyle = DEFAULT_SETTINGS.modernize.arxivStyle;
   }
   return settings;
 }
@@ -213,6 +222,7 @@ function buildRequest() {
       iso4: modernize && s.modernize.iso4,
       replace_ids: modernize && s.modernize.ids,
       arxiv: modernize && s.modernize.arxiv,
+      arxiv_style: modernize && s.modernize.arxivStyle !== "keep" ? s.modernize.arxivStyle : null,
       remove_fields: s.remove.enabled ? removeFields() : [],
       replace_unicode: s.clean.enabled && s.clean.unicode,
       duplicates: s.duplicates.mode,
@@ -259,6 +269,12 @@ function applySettingsToUI() {
   for (const input of $$("input[name=duplicates]")) {
     input.checked = input.value === s.duplicates.mode;
   }
+  for (const input of $$("input[name=arxiv-style]")) {
+    input.checked = input.value === s.modernize.arxivStyle;
+  }
+  const hint = $("#arxiv-style-hint");
+  hint.innerHTML = ARXIV_STYLE_HINTS[s.modernize.arxivStyle];
+  hint.hidden = !hint.innerHTML;
   for (const card of $$(".card")) {
     const toggle = $(".card-head [data-setting]", card);
     const on = toggle ? toggle.checked : true;
@@ -296,6 +312,8 @@ $("#options").addEventListener("change", (event) => {
     state.settings.modernize.fields = defaults.clean_fields.filter((f) => fields.has(f));
   } else if (input.name === "duplicates") {
     state.settings.duplicates.mode = input.value;
+  } else if (input.name === "arxiv-style") {
+    state.settings.modernize.arxivStyle = input.value;
   } else {
     return;
   }
@@ -704,7 +722,7 @@ function renderOriginal(outByOrigin, unresolved) {
           const kind = out.removed.includes(field) ? "rm" : out.changed.includes(field) ? "chg" : "";
           for (let i = a; kind && i <= b; i++) lineCls[i - first] = kind;
         }
-        if (out.id_changed) lineCls[0] = "chg";
+        if (out.id_changed || out.type_changed) lineCls[0] = "chg";
       }
       if (entry.origin === state.selected) cls += " selected";
       parts.push(`<div class="${cls}" data-origin="${entry.origin || ""}">`);
@@ -740,10 +758,8 @@ function renderPreview(unresolved) {
       cls += " dup";
       label += badge("dup", "duplicate?", ` data-dup="${out.origin}" title="Choose which entry to keep"`);
     }
-    if (out.id_changed) {
-      lineCls[0] = "chg";
-      label += badge("chg", `was ${out.original_id}`);
-    }
+    if (out.id_changed) label += badge("chg", `was ${out.original_id}`);
+    if (out.id_changed || out.type_changed) lineCls[0] = "chg";
     if (out.origin === state.selected) cls += " selected";
     parts.push(`<div class="${cls}" data-origin="${out.origin}">`);
     lines.forEach((text, i) => parts.push(lineHtml(out.line + i, text, lineCls[i], i === 0 ? label : "")));
@@ -1310,6 +1326,7 @@ const LINK_SETTINGS = {
   iso4: "modernize.iso4",
   ids: "modernize.ids",
   arxiv: "modernize.arxiv",
+  preprints: "modernize.arxivStyle",
   remove: "remove.enabled",
   fields: "remove.fields",
   duplicates: "duplicates.mode",
