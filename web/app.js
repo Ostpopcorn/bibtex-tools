@@ -1353,9 +1353,17 @@ function downloadName() {
   return "combined.bib";
 }
 
+// A comment at the top of copied and downloaded files, which BibTeX and
+// biber ignore. The preview leaves it out, so its lines match the entries.
+const CREDIT = "% Made with the web version of bibtex-tools\n\n";
+
+function outputText() {
+  return CREDIT + state.response.text;
+}
+
 function download() {
   if (!state.response) return;
-  const blob = new Blob([state.response.text], { type: "text/x-bibtex;charset=utf-8" });
+  const blob = new Blob([outputText()], { type: "text/x-bibtex;charset=utf-8" });
   const link = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(blob), download: downloadName(),
   });
@@ -1368,7 +1376,7 @@ function download() {
 $("#download").addEventListener("click", download);
 $("#copy").addEventListener("click", async () => {
   try {
-    await navigator.clipboard.writeText(state.response.text);
+    await navigator.clipboard.writeText(outputText());
     toast("Copied the result to the clipboard");
   } catch {
     toast("Could not copy to the clipboard");
