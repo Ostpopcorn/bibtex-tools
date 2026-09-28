@@ -1,7 +1,11 @@
 import logging
 import re
+from dataclasses import dataclass, field
 
-from .const import KEY_ID, KEYS_REFERENCE
+from .clean_bib_file import (ask_which_duplicate_to_remove,
+                             get_duplicate_index_pairs_of,
+                             remove_shorter_duplicate)
+from .const import KEY_ID, KEY_IDS, KEYS_REFERENCE
 from .util import load_bib_file
 
 
@@ -75,22 +79,188 @@ def filter_cited_entries(entries, cited_keys):
     return [entry for entry in entries if entry.get(KEY_ID) in keep_ids]
 
 
-def filter_cited_main(bib_file, bbl_file, verbose=logging.WARN, encoding="utf-8"):
+@dataclass
+class CitedEntries:
+    """The result of `resolve_cited_duplicates`, by the index of the entry."""
+    #: index -> entry, a copy if its ID or ids changed
+    kept: dict = field(default_factory=dict)
+    #: index -> reason why the entry is not kept
+    removed: dict = field(default_factory=dict)
+    #: index -> other cited keys of the entry, which were added to its ids
+    aliases: dict = field(default_factory=dict)
+    #: Index pairs of duplicates that are both kept, since both keys are
+    #: cited and the backend has no aliases for keys
+    both_cited: list = field(default_factory=list)
+    #: (logging level, message)
+    notes: list = field(default_factory=list)
+
+def _plural(number, word, words):
+    return "{:d} {}".format(number, word if number == 1 else words)
+
+def resolve_cited_duplicates(entries, cited_keys, pairs=(), resolve=None,
+                             aliases=False):
+    """Keep the cited entries and the entries they refer to, e.g., with
+    crossref, and remove duplicate entries, so that every cited key stays.
+
+    `pairs` are the index pairs of duplicate entries, e.g., from
+    `get_duplicate_index_pairs`, and `resolve(idx1, idx2)` returns the index
+    of the entry to remove, or None to keep both. The kept entry takes over
+    the cited keys of the removed one: it is renamed to the cited key, or, if
+    its own key is cited as well, the other key is added to its `ids`, which
+    biblatex resolves (`aliases`). BibTeX has no aliases for keys, so without
+    `aliases`, both entries of a pair are kept if both keys are cited.
+
+    Of other entries with the same key, only the first one is kept, since
+    BibTeX and biber use the first one. The entries are not changed."""
+    needed = add_referenced_ids(cited_keys, entries)
+    # The cited keys of each entry, and its position among entries with the
+    # same key, which is the position of the entry whose key it takes over
+    keys = {_idx: [_entry[KEY_ID]] if _entry[KEY_ID] in needed else []
+            for _idx, _entry in enumerate(entries)}
+    position = list(range(len(entries)))
+    result = CitedEntries()
+    for _idx1, _idx2 in pairs:
+        if _idx1 in result.removed or _idx2 in result.removed:
+            continue
+        _remove = resolve(_idx1, _idx2)
+        if _remove is None:
+            continue
+        _keep = _idx2 if _remove == _idx1 else _idx1
+        _new = [k for k in keys[_remove] if k not in keys[_keep]]
+        if _new and keys[_keep] and not aliases:
+            result.both_cited.append((_idx1, _idx2))
+            continue
+        result.removed[_remove] = "duplicate of {}".format(entries[_keep][KEY_ID])
+        if _new:
+            result.removed[_remove] += ", which takes over its key"
+            if not keys[_keep]:
+                position[_keep] = position[_remove]
+            keys[_keep].extend(_new)
+
+    renamed, merged = [], []
+    for _idx, _entry in enumerate(entries):
+        if _idx in result.removed:
+            continue
+        if not keys[_idx]:
+            result.removed[_idx] = "not cited"
+            continue
+        _own = _entry[KEY_ID]
+        _key = _own if _own in keys[_idx] else keys[_idx][0]
+        _others = [k for k in keys[_idx] if k != _key]
+        if _key != _own or _others:
+            _entry = dict(_entry)
+            _entry[KEY_ID] = _key
+            if _key != _own:
+                renamed.append("{} → {}".format(_own, _key))
+            if _others:
+                _ids = [k.strip() for k in _entry.get(KEY_IDS, "").split(",")
+                        if k.strip()]
+                _entry[KEY_IDS] = ", ".join(_ids + [k for k in _others
+                                                    if k not in _ids])
+                result.aliases[_idx] = _others
+                merged.append("{} (also {})".format(_key, ", ".join(_others)))
+        result.kept[_idx] = _entry
+
+    # Of entries with the same key, LaTeX uses the first one
+    same = []
+    first = set()
+    for _idx in sorted(result.kept, key=lambda k: position[k]):
+        _key = result.kept[_idx][KEY_ID]
+        if _key in first:
+            del result.kept[_idx]
+            result.removed[_idx] = "same key as an earlier entry, which LaTeX uses"
+            same.append(_key)
+        first.add(_key)
+
+    if renamed:
+        result.notes.append((logging.INFO,
+            "{} of removed duplicates: {}".format(
+                _plural(len(renamed), "entry takes over the cited key",
+                        "entries take over the cited keys"),
+                ", ".join(renamed))))
+    if merged:
+        result.notes.append((logging.INFO,
+            "Merged {} whose keys are both cited, with the other keys in "
+            "ids for biblatex: {}".format(
+                _plural(len(merged), "pair of duplicates", "pairs of duplicates"),
+                ", ".join(merged))))
+    if result.both_cited:
+        result.notes.append((logging.WARNING,
+            "Kept both entries of {}, since both keys are cited and BibTeX has "
+            "no aliases for keys: {}. Cite one key of each pair in your .tex "
+            "file to remove the duplicates.".format(
+                _plural(len(result.both_cited), "pair of duplicates",
+                        "pairs of duplicates"),
+                ", ".join("{} and {}".format(entries[_idx1][KEY_ID],
+                                             entries[_idx2][KEY_ID])
+                          for _idx1, _idx2 in result.both_cited))))
+    if same:
+        result.notes.append((logging.WARNING,
+            "Removed {} with the same key as an earlier entry, which LaTeX "
+            "uses: {}".format(_plural(len(same), "entry", "entries"),
+                              ", ".join(sorted(set(same))))))
+    return result
+
+
+def filter_cited_main(bib_file, bbl_file, remove_duplicates=False,
+                      interactive=False, verbose=logging.WARN,
+                      encoding="utf-8"):
+    """Keep the entries of one or more bib files (`bib_file` can be a list)
+    that are cited in a .bbl file. With `remove_duplicates` or
+    `interactive`, duplicates of the cited entries are removed as well, and
+    the kept entry of a pair takes over the cited key of the removed one."""
     logging.basicConfig(format="%(asctime)s - [%(levelname)8s]: %(message)s")
     logger = logging.getLogger("filter_cited")
     logger.setLevel(verbose)
-    logger.info("Filtering entries of %s using citations from %s", bib_file, bbl_file)
-    bib_database = load_bib_file(bib_file, abbr=None, encoding=encoding)
-    entries = bib_database.get_entry_list()
+    bib_files = [bib_file] if isinstance(bib_file, str) else list(bib_file)
+    logger.info("Filtering entries of %s using citations from %s",
+                ", ".join(bib_files), bbl_file)
+    entries = []
+    for _bib_file in bib_files:
+        entries.extend(load_bib_file(_bib_file, abbr=None,
+                                     encoding=encoding).get_entry_list())
     cited_keys, backend = get_bbl_keys(bbl_file, encoding=encoding)
     logger.info("Detected bbl backend: %s", backend)
     logger.info("Found %d cited keys in bbl file", len(cited_keys))
-    bib_ids = set(entry.get(KEY_ID) for entry in entries)
-    kept = filter_cited_entries(entries, cited_keys)
-    keep_ids = set(entry.get(KEY_ID) for entry in kept)
+
+    pairs = []
+    needed = add_referenced_ids(cited_keys, entries)
+    if remove_duplicates or interactive:
+        pairs, warnings = get_duplicate_index_pairs_of(
+            entries, [_idx for _idx, _entry in enumerate(entries)
+                      if _entry[KEY_ID] in needed])
+        for _level, _warning in warnings:
+            logger.log(_level, _warning)
+        if pairs:
+            logger.warning("Found %d pairs of duplicates of cited entries",
+                           len(pairs))
+    resolver = (ask_which_duplicate_to_remove if interactive
+                else remove_shorter_duplicate)
+
+    def resolve(idx1, idx2):
+        entry1, entry2 = entries[idx1], entries[idx2]
+        if interactive:
+            cited = [str(_num) for _num, _entry in ((1, entry1), (2, entry2))
+                     if _entry[KEY_ID] in needed]
+            logger.warning("The .bbl file cites entry %s. If you remove a "
+                           "cited entry, the other one takes over its key.",
+                           " and ".join(cited))
+        remove = resolver(entry1, entry2)
+        if remove is None:
+            return None
+        return idx1 if remove is entry1 else idx2
+
+    result = resolve_cited_duplicates(entries, cited_keys, pairs, resolve,
+                                      aliases=backend == "biblatex")
+    # The users should see when a key moves to another entry
+    for _level, _note in result.notes:
+        logger.log(max(_level, logging.WARNING), _note)
+    kept = [result.kept[_idx] for _idx in sorted(result.kept)]
+    keep_ids = set(entry[KEY_ID] for entry in kept)
     referenced = keep_ids - cited_keys
-    unused = bib_ids - keep_ids
-    missing = cited_keys - bib_ids
+    unused = set(entries[_idx][KEY_ID] for _idx, _reason in result.removed.items()
+                 if _reason == "not cited")
+    missing = cited_keys - set(entry[KEY_ID] for entry in entries)
     logger.info("Keeping %d of %d entries", len(kept), len(entries))
     if referenced:
         logger.info("Keeping %d entries that cited entries refer to, e.g., "

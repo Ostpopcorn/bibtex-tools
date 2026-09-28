@@ -316,6 +316,17 @@ body:not(.has-files) .add-wrap { display: none; }
 .hint { margin: 0; font-size: 12px; color: var(--muted); }
 .hint.warn { color: var(--chg-bar); }
 .hint strong { color: var(--text); font-weight: 600; }
+/* Cited keys that are not in the bib files, scrolling after 3 rows */
+.missing-keys { display: flex; flex-wrap: wrap; gap: 4px; max-height: 70px; overflow-y: auto; }
+.missing-keys[hidden] { display: none; }
+.missing-keys code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--chg-bg);
+  color: var(--text);
+  font: 11.5px/18px var(--code-font);
+  overflow-wrap: anywhere;
+}
 
 .pills { display: flex; flex-wrap: wrap; gap: 5px; }
 .pill { position: relative; cursor: pointer; }
@@ -497,6 +508,7 @@ body:not(.has-files) .gutter { display: none; }
 .badge.chg { background: var(--chg-bar); color: #1b1300; }
 .badge.dup { background: var(--dup-bar); color: #fff; cursor: pointer; }
 .badge.err { background: var(--rm-bar); color: #fff; }
+.badge.cited { margin: 0 0 0 4px; background: var(--accent); color: #fff; vertical-align: 1px; }
 
 .overlay {
   position: absolute;
@@ -665,6 +677,7 @@ svg.icon-fill { fill: currentColor; stroke: none; }
 .dup-side.kept { border-color: var(--add-bar); }
 .dup-side.kept .dup-state { color: var(--add-bar); }
 .dup-side .l.only { background: var(--dup-bg); border-left-color: var(--dup-bar); }
+.dialog > .dup-note { padding: 10px 20px 0; color: var(--text); }
 .dialog-foot { display: flex; align-items: center; gap: 8px; padding: 14px 20px 18px; }
 .about-dialog { width: min(580px, calc(100vw - 32px)); }
 .about-body { display: flex; flex-direction: column; gap: 14px; padding: 6px 20px 22px; overflow: auto; }
