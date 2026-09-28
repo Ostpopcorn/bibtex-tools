@@ -15,6 +15,8 @@ KEY_URL = "url"
 KEY_HOWPUBLISHED = "howpublished"
 KEY_PUBLISHER = "publisher"
 KEY_ENTRYTYPE = "ENTRYTYPE"
+#: Other keys of an entry, which biblatex resolves as well
+KEY_IDS = "ids"
 KEYS_JOURNAL = ["journal", "journaltitle"]
 KEY_BOOKTITLE = "booktitle"
 KEY_EDITOR = "editor"

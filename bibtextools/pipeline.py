@@ -7,8 +7,9 @@ changed. The steps are run in the following order:
 
 1. read the sources, expanding the abbreviations (`clean`)
 2. combine the entries of all sources (`combine`)
-3. keep only cited entries (`filter-cited`)
-4. remove duplicate entries
+3. remove duplicate entries
+4. keep only cited entries (`filter-cited`): with duplicates of cited
+   entries, the kept entry takes over the cited key of the removed one
 5. clean the fields, e.g., months and pages, write arXiv preprints in one
    style, and add arXiv categories (`modernize`)
 6. remove fields
@@ -24,10 +25,12 @@ from typing import Callable, Optional
 
 from bibtexparser.bibdatabase import BibDatabase
 
-from .clean_bib_file import (get_duplicate_index_pairs, remove_shorter_duplicate,
-                             replace_duplicate_ids, replace_unicode_in_entry)
+from .clean_bib_file import (get_duplicate_index_pairs,
+                             get_duplicate_index_pairs_of,
+                             remove_shorter_duplicate, replace_duplicate_ids,
+                             replace_unicode_in_entry)
 from .const import KEY_ENTRYTYPE, KEY_ID
-from .filter_bib_file import filter_cited_entries
+from .filter_bib_file import add_referenced_ids, resolve_cited_duplicates
 from .modernize_bib_file import modernize_entry
 from .util import format_bib_entries, parse_bib_string
 
@@ -43,6 +46,9 @@ class PipelineOptions:
     abbr: Optional[dict] = None
     #: Keep only these cited keys and the entries they refer to (if not None)
     cited_keys: Optional[frozenset] = None
+    #: Backend of the .bbl file with the cited keys, e.g., "biblatex", which
+    #: resolves other keys of an entry in its ids field
+    bbl_backend: Optional[str] = None
     #: One of `DUPLICATES_KEEP`, `DUPLICATES_REMOVE_SHORTER`, and
     #: `DUPLICATES_CHOOSE`
     duplicates: str = DUPLICATES_KEEP
@@ -81,6 +87,8 @@ class OutputEntry:
     added: set
     changed: set
     removed: set
+    #: Other cited keys of the entry, which were added to its ids
+    aliases: tuple = ()
 
 
 @dataclass
@@ -105,6 +113,12 @@ class PipelineResult:
     renamed_ids: dict
     #: (logging level, message)
     messages: list
+    #: Origins of the entries whose own key is cited, or that cited entries
+    #: refer to
+    cited_origins: set = field(default_factory=set)
+    #: Pairs of duplicate entries that are both kept, since both keys are
+    #: cited and the .bbl file is not from biblatex, which has aliases
+    both_cited: list = field(default_factory=list)
 
 
 def _count(number, word, words):
@@ -147,12 +161,20 @@ class Pipeline:
             self._loaded = (entries, origins, unreadable)
         return self._loaded
 
-    def find_duplicates(self, entries, origins):
-        """Return the pairs of origins of duplicate entries."""
-        key = (self._loaded_key, tuple(origins))
+    def find_duplicates(self, entries, origins, among=None):
+        """Return the pairs of origins of duplicate entries, and warnings.
+        With the indices `among`, only the duplicates of these entries and
+        of their duplicates in turn, see `get_duplicate_index_pairs_of`."""
+        key = (self._loaded_key, tuple(origins),
+               None if among is None else tuple(among))
         if self._pairs is None or self._pairs_key != key:
-            self._pairs = [(origins[_idx1], origins[_idx2])
-                           for _idx1, _idx2 in get_duplicate_index_pairs(entries)]
+            if among is None:
+                index_pairs, warnings = get_duplicate_index_pairs(entries), []
+            else:
+                index_pairs, warnings = get_duplicate_index_pairs_of(entries,
+                                                                     among)
+            self._pairs = ([(origins[_idx1], origins[_idx2])
+                            for _idx1, _idx2 in index_pairs], warnings)
             self._pairs_key = key
         return self._pairs
 
@@ -172,12 +194,52 @@ class Pipeline:
 
         removed = {}
         missing = set()
+        pairs = None
+        unresolved = []
+        aliases = {}
+        cited_origins = set()
+        both_cited = []
+
+        def resolve(idx1, idx2):
+            """The index of the duplicate entry to remove, or None."""
+            pair = (origins[idx1], origins[idx2])
+            if options.duplicates == DUPLICATES_REMOVE_SHORTER:
+                shorter = remove_shorter_duplicate(entries[idx1], entries[idx2])
+                return idx1 if shorter is entries[idx1] else idx2
+            if pair in options.duplicate_decisions:
+                remove = options.duplicate_decisions[pair]
+                if remove is None:
+                    return None
+                return idx1 if remove == pair[0] else idx2
+            unresolved.append(pair)
+            return None
+
+        # The cited entries and the entries they refer to, which must stay
+        needed = None
         if options.cited_keys is not None:
-            kept = set(map(id, filter_cited_entries(entries,
-                                                    options.cited_keys)))
-            for _entry, _origin in zip(entries, origins):
-                if id(_entry) not in kept:
-                    removed[_origin] = "not cited"
+            needed = add_referenced_ids(options.cited_keys, entries)
+            cited_origins = set(_origin for _entry, _origin
+                                in zip(entries, origins)
+                                if _entry[KEY_ID] in needed)
+
+        index_pairs = []
+        if options.duplicates != DUPLICATES_KEEP:
+            # Only duplicates of the entries that must stay matter
+            among = None if needed is None else [
+                _idx for _idx, _entry in enumerate(entries)
+                if _entry[KEY_ID] in needed]
+            pairs, warnings = self.find_duplicates(entries, origins, among)
+            messages.extend(warnings)
+            index = {_origin: _idx for _idx, _origin in enumerate(origins)}
+            index_pairs = [(index[_origin1], index[_origin2])
+                           for _origin1, _origin2 in pairs]
+
+        if options.cited_keys is not None:
+            # The kept entry of duplicates takes over the cited key of the
+            # removed one, so that every cited key stays
+            cited = resolve_cited_duplicates(
+                entries, options.cited_keys, index_pairs, resolve,
+                aliases=options.bbl_backend == "biblatex")
             missing = (set(options.cited_keys)
                        - set(_entry[KEY_ID] for _entry in entries))
             if missing:
@@ -186,42 +248,45 @@ class Pipeline:
                                      _count(len(missing), "cited key is",
                                             "cited keys are"),
                                      ", ".join(sorted(missing)))))
+            messages.extend(cited.notes)
+            removed = {origins[_idx]: _reason
+                       for _idx, _reason in cited.removed.items()}
+            aliases = {origins[_idx]: tuple(_keys)
+                       for _idx, _keys in cited.aliases.items()}
+            both_cited = [(origins[_idx1], origins[_idx2])
+                          for _idx1, _idx2 in cited.both_cited]
+            kept = sorted(cited.kept)
+            entries = [cited.kept[_idx] for _idx in kept]
+            origins = [origins[_idx] for _idx in kept]
+        else:
+            for _idx1, _idx2 in index_pairs:
+                if origins[_idx1] in removed or origins[_idx2] in removed:
+                    continue
+                _remove = resolve(_idx1, _idx2)
+                if _remove is None:
+                    continue
+                _keep = _idx2 if _remove == _idx1 else _idx1
+                removed[origins[_remove]] = "duplicate of {}".format(
+                    entries[_keep][KEY_ID])
             entries, origins = _drop(entries, origins, removed)
+        if unresolved:
+            messages.append((logging.INFO,
+                             "{} of duplicate entries kept until you "
+                             "choose which entry to remove".format(
+                                 _count(len(unresolved), "pair", "pairs"))))
 
-        pairs = None
-        unresolved = []
-        if options.duplicates != DUPLICATES_KEEP:
-            pairs = self.find_duplicates(entries, origins)
-            by_origin = dict(zip(origins, entries))
-            for _pair in pairs:
-                if _pair[0] in removed or _pair[1] in removed:
-                    continue
-                _entry1, _entry2 = by_origin[_pair[0]], by_origin[_pair[1]]
-                if options.duplicates == DUPLICATES_REMOVE_SHORTER:
-                    _shorter = remove_shorter_duplicate(_entry1, _entry2)
-                    _remove = _pair[0] if _shorter is _entry1 else _pair[1]
-                elif _pair in options.duplicate_decisions:
-                    _remove = options.duplicate_decisions[_pair]
-                    if _remove is None:
-                        continue
-                else:
-                    unresolved.append(_pair)
-                    continue
-                _keep = _pair[1] if _remove == _pair[0] else _pair[0]
-                removed[_remove] = "duplicate of {}".format(
-                    by_origin[_keep][KEY_ID])
-            if unresolved:
-                messages.append((logging.INFO,
-                                 "{} of duplicate entries kept until you "
-                                 "choose which entry to remove".format(
-                                     _count(len(unresolved), "pair",
-                                            "pairs"))))
-            entries, origins = _drop(entries, origins, removed)
+        # The keys must stay the cited ones
+        replace_ids = options.replace_ids and options.cited_keys is None
+        if options.replace_ids and not replace_ids:
+            messages.append((logging.INFO,
+                             "Generate IDs is skipped while filtering by a "
+                             ".bbl file, since the keys must stay the cited "
+                             "ones"))
 
         for _idx, _entry in enumerate(entries):
             _entry = modernize_entry(_entry,
                                      remove_fields=options.remove_fields,
-                                     replace_ids=options.replace_ids,
+                                     replace_ids=replace_ids,
                                      arxiv=options.arxiv, iso4=options.iso4,
                                      clean_fields=options.clean_fields,
                                      arxiv_lookup=options.arxiv_lookup,
@@ -256,14 +321,17 @@ class Pipeline:
                 id_changed=_entry[KEY_ID] != _original[KEY_ID],
                 type_changed=(_entry[KEY_ENTRYTYPE].lower()
                               != _original[KEY_ENTRYTYPE].lower()),
-                added=_added, changed=_changed, removed=_removed))
+                added=_added, changed=_changed, removed=_removed,
+                aliases=aliases.get(_origin, ())))
             line += _text.count("\n") + 1
         text = "\n".join(_out.text for _out in output)
         return PipelineResult(text=text, entries=output, originals=originals,
                               removed=removed, duplicate_pairs=pairs,
                               unresolved_pairs=unresolved,
                               missing_keys=missing, unreadable=unreadable,
-                              renamed_ids=renamed, messages=messages)
+                              renamed_ids=renamed, messages=messages,
+                              cited_origins=cited_origins,
+                              both_cited=both_cited)
 
 
 def _drop(entries, origins, removed):

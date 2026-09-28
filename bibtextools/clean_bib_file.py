@@ -103,14 +103,26 @@ def _have_different_identifiers(entry1, entry2):
 def _get_year(entry):
     return entry.get(KEY_YEAR, entry.get(KEY_DATE, "")[:4])
 
-def get_duplicate_index_pairs(entries):
+def _index_pairs(count, among=None):
+    """The index pairs `(i, j)` with `i < j` of `count` entries, only the
+    pairs with an index in `among` if it is given."""
+    if among is None:
+        return itertools.combinations(range(count), 2)
+    among = set(among)
+    return sorted(set((min(_idx1, _idx2), max(_idx1, _idx2))
+                      for _idx1 in among for _idx2 in range(count)
+                      if _idx2 != _idx1))
+
+def get_duplicate_index_pairs(entries, among=None):
     """Return the index pairs `(i, j)` with `i < j` of all entries that are
     duplicates, i.e., the same work stored more than once. Whether two
-    entries are duplicates does not depend on the other entries."""
+    entries are duplicates does not depend on the other entries. With
+    `among`, e.g., the indices of the cited entries, only the pairs with one
+    of these entries are searched, which is much faster."""
     seq_matcher_title = SequenceMatcher()
     seq_matcher_authors = SequenceMatcher()
     duplicates = []
-    for _idx1, _idx2 in itertools.combinations(range(len(entries)), 2):
+    for _idx1, _idx2 in _index_pairs(len(entries), among):
         _entry1, _entry2 = entries[_idx1], entries[_idx2]
         if _entry1[KEY_ENTRYTYPE] != _entry2[KEY_ENTRYTYPE]:
             continue
@@ -161,6 +173,54 @@ def get_duplicate_index_pairs(entries):
             continue
         duplicates.append((_idx1, _idx2))
     return duplicates
+
+#: Groups of duplicates, i.e., copies of the same work, with more entries are
+#: not searched further, since their pairs grow quickly
+MAX_DUPLICATES = 5
+
+def get_duplicate_index_pairs_of(entries, among, max_duplicates=MAX_DUPLICATES):
+    """Return the index pairs of the duplicates of the entries with the
+    indices `among`, e.g., the cited ones, and of their duplicates in turn,
+    so that all copies of the same work are compared with each other.
+    Groups of copies with more than `max_duplicates` entries are not searched
+    further, and a warning lists them. Returns the sorted pairs and the
+    warnings as `(logging level, message)`."""
+    parent = {}
+    def root(idx):
+        while parent.setdefault(idx, idx) != idx:
+            idx = parent[idx]
+        return idx
+
+    pairs = set()
+    searched = set()
+    search = set(among)
+    while search:
+        searched |= search
+        found = get_duplicate_index_pairs(entries, among=search)
+        pairs.update(found)
+        for _idx1, _idx2 in found:
+            parent[root(_idx1)] = root(_idx2)
+        sizes = {}
+        for _idx in parent:
+            sizes[root(_idx)] = sizes.get(root(_idx), 0) + 1
+        search = set(_idx for _pair in found for _idx in _pair
+                     if _idx not in searched
+                     and sizes[root(_idx)] <= max_duplicates)
+
+    groups = {}
+    for _idx in parent:
+        groups.setdefault(root(_idx), []).append(_idx)
+    too_large = [sorted(_group) for _group in groups.values()
+                 if len(_group) > max_duplicates]
+    warnings = [(logging.WARNING,
+                 "{} entries seem to be the same work: {}. Since that is more "
+                 "than {}, not all of their pairs are compared. Remove some "
+                 "copies from the bib files to compare all of them.".format(
+                     len(_group), ", ".join(entries[_idx][KEY_ID]
+                                            for _idx in _group),
+                     max_duplicates))
+                for _group in sorted(too_large)]
+    return sorted(pairs), warnings
 
 @cleaning_function(on_all_entries=True)
 def get_duplicate_entries(entries):

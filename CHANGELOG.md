@@ -34,6 +34,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add new `filter-cited` command that keeps only the entries of a bib file
   that are cited in a `.bbl` file (biblatex/biber or BibTeX). Entries that
   cited entries refer to, e.g., via `crossref` or `xdata`, are kept as well.
+  It filters several bib files at once, and with `--remove-duplicates` or
+  `-i`, it removes duplicates of the cited entries so that every cited key
+  stays: the kept entry takes over the cited key of the removed one, or gets
+  it in its `ids` field if both keys are cited (biblatex). With BibTeX, both
+  entries are kept then. Of different entries with the same key, the first
+  one is kept. In Python, use `filter_bib_file.resolve_cited_duplicates`.
+- Add an `among` argument to `get_duplicate_index_pairs`, which only searches
+  the pairs with one of the given entries, e.g., the cited ones, and
+  `get_duplicate_index_pairs_of`, which also searches the duplicates of
+  their duplicates, up to groups of `MAX_DUPLICATES` (5) copies.
 
 ### Changed
 - Move `DEFAULT_REMOVE` from the command line modules to `const`.

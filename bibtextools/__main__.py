@@ -64,12 +64,16 @@ def get_arg_parser():
     parser_combine.add_argument("bib_files", nargs="+")
 
     parser_filter = subparsers.add_parser("filter-cited",
-            help="Filter a bib file to keep only entries that are cited in a given .bbl file.")
+            help="Filter one or more bib files to keep only entries that are cited in a given .bbl file.")
     parser_filter.add_argument("--bbl", dest="bbl_file", required=True,
                                help="Path to the .bbl file whose citations define which entries to keep.")
+    parser_filter.add_argument("--remove-duplicates", action="store_true",
+                               help="Remove duplicates of the cited entries, also from other bib files. Of each pair, the entry with less fields is removed, and the kept entry takes over the cited key of the removed one. If both keys are cited, biblatex gets one entry with the other key in its ids field, and BibTeX keeps both entries.")
+    parser_filter.add_argument("-i", "--interactive", action="store_true",
+                               help="Ask which entry of each pair of duplicates to remove. Implies --remove-duplicates.")
     parser_filter.add_argument("-v", "--verbose", action="count", default=0, help="Verbosity level. -v is info and -vv is debug")
-    parser_filter.add_argument("-o", "--output", help="Output file for the filtered bib entries. If not specified, it will be the input file with a 'filter-cited-' prefix.")
-    parser_filter.add_argument("bib_file")
+    parser_filter.add_argument("-o", "--output", help="Output file for the filtered bib entries. If not specified, it will be the first input file with a 'filter-cited-' prefix.")
+    parser_filter.add_argument("bib_file", nargs="+")
     return parser
 
 
@@ -96,6 +100,8 @@ def main():
     if output is None:
         if command == "combine":
             _bib_file_name = args['bib_files'][0]
+        elif command == "filter-cited":
+            _bib_file_name = args['bib_file'][0]
         else:
             _bib_file_name = args['bib_file']
         _out_dir, _out_base = os.path.split(_bib_file_name)
