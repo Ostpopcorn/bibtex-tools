@@ -651,8 +651,12 @@ function renderFilesInfo() {
     if (kind === "abbr") $("#abbr-hint").hidden = Boolean(file);
   }
   const info = $("#bbl-info");
+  const list = $("#bbl-missing");
   const cited = state.response && state.response.cited;
   info.classList.remove("warn");
+  info.title = "";
+  list.replaceChildren();
+  list.hidden = true;
   if (!state.bbl) {
     info.innerHTML = "Compile your document, then upload or paste its <code>.bbl</code> file.";
   } else if (!state.settings.filter.enabled) {
@@ -660,11 +664,16 @@ function renderFilesInfo() {
   } else if (cited) {
     const missing = cited.missing.length;
     info.innerHTML = `<strong>${cited.count}</strong> cited · <strong>${cited.kept}</strong> ${cited.kept === 1 ? "entry" : "entries"} kept` +
-      (missing ? ` · <strong>${missing}</strong> not in your files` : "");
+      (missing ? ` · <strong>${missing}</strong> not in your files:` : "");
     info.title = `Read from a ${cited.backend} .bbl file`;
     if (missing) {
       info.classList.add("warn");
-      info.title += `. Not in your files: ${cited.missing.join(", ")}`;
+      for (const key of cited.missing) {
+        const chip = document.createElement("code");
+        chip.textContent = key;
+        list.append(chip);
+      }
+      list.hidden = false;
     }
   } else {
     info.textContent = "Reading…";
