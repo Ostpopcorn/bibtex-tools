@@ -316,6 +316,17 @@ body:not(.has-files) .add-wrap { display: none; }
 .hint { margin: 0; font-size: 12px; color: var(--muted); }
 .hint.warn { color: var(--chg-bar); }
 .hint strong { color: var(--text); font-weight: 600; }
+/* Cited keys that are not in the bib files, scrolling after 3 rows */
+.missing-keys { display: flex; flex-wrap: wrap; gap: 4px; max-height: 70px; overflow-y: auto; }
+.missing-keys[hidden] { display: none; }
+.missing-keys code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--chg-bg);
+  color: var(--text);
+  font: 11.5px/18px var(--code-font);
+  overflow-wrap: anywhere;
+}
 
 .pills { display: flex; flex-wrap: wrap; gap: 5px; }
 .pill { position: relative; cursor: pointer; }
