@@ -671,6 +671,7 @@ function renderFilesInfo() {
       for (const key of cited.missing) {
         const chip = document.createElement("code");
         chip.textContent = key;
+        chip.title = key;
         list.append(chip);
       }
       list.hidden = false;
@@ -702,9 +703,13 @@ window.addEventListener("drop", async (event) => {
 
 /* Rendering */
 
-function lineHtml(number, text, cls = "", extra = "") {
+// `badges` are shown at the end of the line, or on a row below it when they
+// do not fit next to the text, so that the key is not broken
+function lineHtml(number, text, cls = "", badges = "") {
+  if (badges) cls = cls ? `${cls} has-badges` : "has-badges";
   return `<div class="l${cls ? " " + cls : ""}"><span class="n">${number}</span>` +
-    `<span class="t">${escapeHtml(text) || " "}</span>${extra}</div>`;
+    `<span class="t">${escapeHtml(text) || " "}</span>` +
+    (badges ? `<span class="badges">${badges}</span>` : "") + "</div>";
 }
 
 const FILE_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>`;

@@ -325,7 +325,10 @@ body:not(.has-files) .add-wrap { display: none; }
   background: var(--chg-bg);
   color: var(--text);
   font: 11.5px/18px var(--code-font);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pills { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -493,10 +496,22 @@ body:not(.has-files) .gutter { display: none; }
 /* Possible duplicates are marked without hiding the highlighted changes */
 .entry.dup .l:not(.add):not(.chg):not(.rm) { border-left-color: var(--dup-bar); }
 
+/* Badges move to a row below the text when they do not fit next to it,
+   instead of squeezing the key */
+.l.has-badges { flex-wrap: wrap; }
+.l.has-badges .t { flex: 1 1 auto; max-width: calc(100% - 3.6em); }
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-self: flex-start;
+  gap: 4px;
+  margin: 2px 0 0 auto;
+  padding-left: 8px;
+}
 .badge {
   flex: none;
   align-self: flex-start;
-  margin: 2px 0 0 8px;
   padding: 0 7px;
   border-radius: 999px;
   font: 600 10.5px/17px var(--ui-font);
