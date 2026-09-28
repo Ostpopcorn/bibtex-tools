@@ -1,0 +1,15 @@
+\begin{thebibliography}{1}
+
+\bibitem{Smith2020}
+J.~Smith and J.~Doe, ``Deep learning for bibliographies,'' \emph{Journal of
+  Examples}, 2020.
+
+\bibitem{smith2020deep}
+J.~Smith and J.~Doe, ``Deep learning for bibliographies,'' \emph{Journal of
+  Examples}, vol.~12, no.~3, pp. 100--120, 2020.
+
+\bibitem{Kim2021}
+B.~Kim, ``Sticky keys in practice,'' in \emph{Proceedings of the Example
+  Conference}, 2021, pp. 5--6.
+
+\end{thebibliography}

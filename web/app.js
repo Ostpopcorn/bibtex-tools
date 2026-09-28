@@ -282,6 +282,11 @@ function applySettingsToUI() {
     card.classList.toggle("off", !on);
   }
   $("[data-setting='modernize.shield']").disabled = !cleanFields().includes("title");
+  // New IDs would break the citations of the .bbl file
+  const ids = $("[data-setting='modernize.ids']");
+  ids.disabled = s.filter.enabled && Boolean(state.bbl);
+  ids.closest("label").title = ids.disabled
+    ? "Off while filtering by a .bbl file, since the keys must stay the cited ones" : "";
   renderTags();
   renderFilesInfo();
   renderReview();
@@ -646,8 +651,12 @@ function renderFilesInfo() {
     if (kind === "abbr") $("#abbr-hint").hidden = Boolean(file);
   }
   const info = $("#bbl-info");
+  const list = $("#bbl-missing");
   const cited = state.response && state.response.cited;
   info.classList.remove("warn");
+  info.title = "";
+  list.replaceChildren();
+  list.hidden = true;
   if (!state.bbl) {
     info.innerHTML = "Compile your document, then upload or paste its <code>.bbl</code> file.";
   } else if (!state.settings.filter.enabled) {
@@ -655,11 +664,16 @@ function renderFilesInfo() {
   } else if (cited) {
     const missing = cited.missing.length;
     info.innerHTML = `<strong>${cited.count}</strong> cited · <strong>${cited.kept}</strong> ${cited.kept === 1 ? "entry" : "entries"} kept` +
-      (missing ? ` · <strong>${missing}</strong> not in your files` : "");
+      (missing ? ` · <strong>${missing}</strong> not in your files:` : "");
     info.title = `Read from a ${cited.backend} .bbl file`;
     if (missing) {
       info.classList.add("warn");
-      info.title += `. Not in your files: ${cited.missing.join(", ")}`;
+      for (const key of cited.missing) {
+        const chip = document.createElement("code");
+        chip.textContent = key;
+        list.append(chip);
+      }
+      list.hidden = false;
     }
   } else {
     info.textContent = "Reading…";
@@ -739,6 +753,7 @@ function renderOriginal(outByOrigin, unresolved) {
           label += badge("dup", "duplicate?", ` data-dup="${entry.origin}" title="Choose which entry to keep"`);
         }
         if (out && out.id_changed) label += badge("chg", `→ ${out.id}`);
+        if (out && out.aliases.length) label += badge("chg", `also cited as ${out.aliases.join(", ")}`);
       }
       const lineCls = new Array(last - first + 1).fill("");
       if (out) {
@@ -784,6 +799,7 @@ function renderPreview(unresolved) {
       label += badge("dup", "duplicate?", ` data-dup="${out.origin}" title="Choose which entry to keep"`);
     }
     if (out.id_changed) label += badge("chg", `was ${out.original_id}`);
+    if (out.aliases.length) label += badge("chg", `also cited as ${out.aliases.join(", ")}`);
     if (out.id_changed || out.type_changed) lineCls[0] = "chg";
     if (out.origin === state.selected) cls += " selected";
     parts.push(`<div class="${cls}" data-origin="${out.origin}">`);
@@ -1202,20 +1218,41 @@ function renderDuplicate() {
   const undecided = pairs.filter(([a, b]) => !state.decisions.has(`${a}|${b}`)).length;
   $("#dup-counter").textContent = `Pair ${dupIndex + 1} of ${pairs.length}` +
     (undecided ? ` · ${undecided} not decided` : " · all decided");
+  // With a .bbl file, the kept entry takes over the cited key of the other
+  const cited = new Set(r.cited ? r.cited.origins : []);
+  const bothKept = Boolean(r.cited) && r.cited.both_cited.some(([a, b]) => `${a}|${b}` === key);
+  const ids = texts.map((lines, i) => (lines[0].match(/\{(.*),$/) || [, pair[i]])[1]);
   $$(".dup-side", dialog).forEach((side, i) => {
     const origin = pair[i];
     const lines = texts[i];
     const otherLines = lineSets[1 - i];
-    $(".dup-id", side).textContent = (lines[0].match(/\{(.*),$/) || [, origin])[1];
+    $(".dup-id", side).textContent = ids[i];
+    $(".badge.cited", side).hidden = !cited.has(origin);
     $(".code", side).innerHTML = lines.map((text, n) =>
       lineHtml(n + 1, text, n > 0 && !otherLines.has(text) ? "only" : "")).join("");
-    const removedElsewhere = r.removed[origin] && decision !== origin;
-    side.classList.toggle("removed", decision === origin || Boolean(removedElsewhere));
-    side.classList.toggle("kept", decided && decision !== origin && !removedElsewhere);
-    $(".dup-state", side).textContent = removedElsewhere ? "removed with another pair"
-      : !decided ? "not decided — kept for now" : decision === origin ? "will be removed" : "kept";
+    const reason = bothKept ? null : r.removed[origin];
+    const out = r.entries.find((e) => e.origin === origin);
+    let text = decision === origin && !bothKept ? "will be removed"
+      : reason === "not cited" ? "not cited — removed by the filter"
+      : reason && reason.startsWith("duplicate of") ? "removed with another pair"
+      : reason ? reason
+      : !decided ? "not decided — kept for now" : "kept";
+    if (out && !reason && out.id !== out.original_id) text += ` as ${out.id}`;
+    if (out && !reason && out.aliases.length) text += `, also as ${out.aliases.join(", ")}`;
+    side.classList.toggle("removed", Boolean(reason) || (decision === origin && !bothKept));
+    side.classList.toggle("kept", !reason && decided && (decision !== origin || bothKept));
+    $(".dup-state", side).textContent = text;
     $("[data-remove]", side).disabled = decision === origin;
   });
+  const note = $("#dup-note");
+  const citedIds = ids.filter((id, i) => cited.has(pair[i]));
+  note.textContent = !r.cited || !citedIds.length ? ""
+    : bothKept || (citedIds.length === 2 && r.cited.backend !== "biblatex")
+      ? "Both keys are cited, and BibTeX has no aliases for keys, so both entries are kept. Cite one of the keys in your .tex file to remove the duplicate."
+    : citedIds.length === 2
+      ? "Both keys are cited. The kept entry gets the other key in its ids field, which biblatex resolves."
+    : `Your .bbl file cites ${citedIds[0]}. If you remove it, the other entry takes over this key.`;
+  note.hidden = !note.textContent;
   $("#dup-keep").disabled = decided && decision === null;
   $("#dup-prev").disabled = dupIndex === 0;
   $("#dup-next").disabled = dupIndex === pairs.length - 1;
