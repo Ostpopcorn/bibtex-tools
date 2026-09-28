@@ -328,10 +328,21 @@ $("#pane-preview").addEventListener("change", (event) => {
   }
 });
 
-$("#link-scroll").addEventListener("change", (event) => {
-  state.linkScroll = event.target.checked;
+function renderLinkScroll() {
+  const button = $("#link-scroll");
+  button.setAttribute("aria-pressed", String(state.linkScroll));
+  button.parentElement.classList.toggle("linked", state.linkScroll);
+  button.title = state.linkScroll
+    ? "Scrolling is linked: both sides show the same entries. Click to scroll them separately."
+    : "Scrolling is not linked. Click to scroll both sides together.";
+}
+
+$("#link-scroll").addEventListener("click", () => {
+  state.linkScroll = !state.linkScroll;
+  renderLinkScroll();
   if (state.linkScroll) align(panes[state.lastPane], panes[other(state.lastPane)]);
 });
+renderLinkScroll();
 
 /* Remove fields */
 
@@ -682,6 +693,15 @@ function lineHtml(number, text, cls = "", extra = "") {
     `<span class="t">${escapeHtml(text) || " "}</span>${extra}</div>`;
 }
 
+const FILE_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>`;
+
+// The name of a file above its entries, which stays at the top of the pane
+// while its entries are shown
+function sourceHead(name, attrs = "") {
+  return `<div class="l sep src-head"${attrs}><span class="n"></span>` +
+    `<span class="t">${FILE_ICON}<span class="src-name">${escapeHtml(name)}</span></span></div>`;
+}
+
 function badge(kind, text, attrs = "") {
   return `<span class="badge ${kind}"${attrs}>${escapeHtml(text)}</span>`;
 }
@@ -691,7 +711,11 @@ function renderOriginal(outByOrigin, unresolved) {
   const parts = [];
   state.sources.forEach((source, sourceIdx) => {
     const lines = splitLines(source.text);
-    if (state.sources.length > 1) parts.push(lineHtml("", source.name, "sep"));
+    const combined = state.sources.length > 1;
+    if (combined) {
+      parts.push(`<section class="src">`,
+        sourceHead(source.name, ` title="Go to the start of ${escapeHtml(source.name)}"`));
+    }
     const entries = r ? r.sources[sourceIdx].entries : [];
     let next = 0;
     for (const entry of entries) {
@@ -733,6 +757,7 @@ function renderOriginal(outByOrigin, unresolved) {
       next = last + 1;
     }
     for (let i = next; i < lines.length; i++) parts.push(lineHtml(i + 1, lines[i]));
+    if (combined) parts.push("</section>");
   });
   panes.original.content.innerHTML = parts.join("");
 }
@@ -1107,6 +1132,11 @@ for (const name of ["original", "preview"]) {
     if (state.linkScroll) follow(pane, panes[other(name)], previous);
   }, { passive: true });
   pane.el.addEventListener("click", (event) => {
+    const head = event.target.closest(".src > .src-head");
+    if (head) {
+      pane.el.scrollTop = head.parentElement.offsetTop;
+      return;
+    }
     const dup = event.target.closest("[data-dup]");
     if (dup) {
       openDuplicates(dup.dataset.dup);
