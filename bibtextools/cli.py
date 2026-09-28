@@ -93,12 +93,16 @@ def combine(ctx, bib_file, allow_duplicates, replace_ids, remove_duplicates,
 
 @main.command("filter-cited")
 @click.pass_context
-@click.argument("bib_file", required=True, type=click.Path(exists=True))
+@click.argument("bib_file", required=True, type=click.Path(exists=True), nargs=-1)
 @click.option("--bbl", "bbl_file", required=True,
               type=click.Path(exists=True, dir_okay=False))
-def filter_cited(ctx, bib_file, bbl_file):
-    kept_entries = filter_cited_main(bib_file=bib_file,
+@click.option("--remove-duplicates", is_flag=True, default=False)
+@click.option("-i", "--interactive", is_flag=True, default=False)
+def filter_cited(ctx, bib_file, bbl_file, remove_duplicates, interactive):
+    kept_entries = filter_cited_main(bib_file=list(bib_file),
                                      bbl_file=bbl_file,
+                                     remove_duplicates=remove_duplicates,
+                                     interactive=interactive,
                                      verbose=ctx.parent.params['verbose'])
     return kept_entries, bib_file
 
@@ -106,7 +110,7 @@ def filter_cited(ctx, bib_file, bbl_file):
 @click.pass_context
 def save_file(ctx, result, output, verbose):
     clean_entries, bib_file = result
-    if ctx.invoked_subcommand == "combine":
+    if ctx.invoked_subcommand in ("combine", "filter-cited"):
         bib_file = bib_file[0]
     if output is None:
         _out_dir, _out_base = os.path.split(bib_file)

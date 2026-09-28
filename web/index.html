@@ -276,16 +276,17 @@
     <p class="hint">Both entries seem to be the same work. Choose the one to remove, or keep both.</p>
     <div class="dup-grid">
       <section class="dup-side" data-side="0">
-        <header><strong class="dup-id"></strong><span class="dup-state"></span></header>
+        <header><span><strong class="dup-id"></strong> <span class="badge cited" hidden>cited</span></span><span class="dup-state"></span></header>
         <div class="code small"></div>
         <button class="btn danger" data-remove="0">Remove this entry</button>
       </section>
       <section class="dup-side" data-side="1">
-        <header><strong class="dup-id"></strong><span class="dup-state"></span></header>
+        <header><span><strong class="dup-id"></strong> <span class="badge cited" hidden>cited</span></span><span class="dup-state"></span></header>
         <div class="code small"></div>
         <button class="btn danger" data-remove="1">Remove this entry</button>
       </section>
     </div>
+    <p class="hint dup-note" id="dup-note" hidden></p>
     <footer class="dialog-foot">
       <button class="btn" id="dup-prev">← Previous</button>
       <button class="btn" id="dup-keep">Keep both</button>

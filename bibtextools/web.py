@@ -114,6 +114,7 @@ def _output_entry(out, original, located):
             "line": out.line,
             "id_changed": out.id_changed,
             "type_changed": out.type_changed,
+            "aliases": list(out.aliases),
             "added": sorted(added),
             "changed": sorted(changed),
             "removed": sorted(removed),
@@ -136,7 +137,7 @@ def _run(request):
     opts = request["options"]
     categories = {normalize_eprint(k): v
                   for k, v in request.get("arxiv_categories", {}).items()}
-    cited = None
+    cited = backend = None
     if request.get("bbl") is not None:
         cited, backend = parse_bbl_keys(request["bbl"])
         cited = frozenset(cited)
@@ -148,7 +149,7 @@ def _run(request):
         decisions[(_origin(_first), _origin(_second))] = (
             _origin(_remove) if _remove else None)
     options = PipelineOptions(
-        abbr=abbr, cited_keys=cited,
+        abbr=abbr, cited_keys=cited, bbl_backend=backend,
         duplicates=opts.get("duplicates", DUPLICATES_KEEP),
         duplicate_decisions=decisions,
         clean_fields=tuple(opts.get("clean_fields", ())),
@@ -204,9 +205,15 @@ def _run(request):
                          for k in sorted(pair_origins)},
         "cited": (None if cited is None else
                   {"count": len(cited), "backend": backend,
-                   "kept": len(result.originals) - list(
-                       result.removed.values()).count("not cited"),
-                   "missing": sorted(result.missing_keys)}),
+                   "kept": len(result.entries),
+                   "missing": sorted(result.missing_keys),
+                   # Entries whose own key is cited or referred to, and
+                   # duplicates that are both kept since BibTeX has no
+                   # aliases for keys
+                   "origins": sorted(_origin_str(k)
+                                     for k in result.cited_origins),
+                   "both_cited": [[_origin_str(k) for k in _pair]
+                                  for _pair in result.both_cited]}),
         "fields": sorted(fields - {KEY_ID, "ENTRYTYPE"}),
         "eprints": sorted(eprints),
         "renamed_ids": sorted(result.renamed_ids),

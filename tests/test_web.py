@@ -40,8 +40,10 @@ def test_run_filter_and_abbreviations():
     response = _run({"sources": [_source("dirty.bib"), _source("old.bib")],
                      "abbr": _read("abbr.bib"), "bbl": _read("cited.bbl"),
                      "options": {}})
-    assert response["cited"] == {"count": 3, "backend": "biblatex", "kept": 2,
-                                 "missing": ["NotInBib"]}
+    cited = response["cited"]
+    assert {k: cited[k] for k in ("count", "backend", "kept", "missing")} == {
+        "count": 3, "backend": "biblatex", "kept": 2, "missing": ["NotInBib"]}
+    assert len(cited["origins"]) == 2 and cited["both_cited"] == []
     assert set(response["removed"].values()) == {"not cited"}
     response = _run({"sources": [_source("dirty.bib")],
                      "abbr": _read("abbr.bib"), "options": {}})

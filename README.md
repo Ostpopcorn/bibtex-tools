@@ -139,11 +139,31 @@ The cited keys are read from the `.bbl` file that biber (biblatex) or BibTeX
 creates when compiling the document.  Entries that a cited entry refers to,
 e.g., via `crossref`, `xdata`, or `related`, are kept as well.
 
+Several bib files can be filtered at once.  With `--remove-duplicates` (or
+`-i` to choose), duplicates of the cited entries are removed, also when they
+are in another file under another key.  Every cited key stays:
+* If the removed entry is the cited one, e.g., because the other entry has
+  more fields, the kept entry takes over its key.
+* If both keys are cited, e.g., because coauthors used their own keys, the
+  kept entry gets the other key in its `ids` field for biblatex, which
+  resolves both keys.  BibTeX has no such aliases, so with a `.bbl` file from
+  BibTeX both entries are kept, and a warning lists the keys to unify in the
+  document.
+* Of different entries with the same key, the first one is kept, since BibTeX
+  and biber use the first one.
+* All copies of the same work are compared with each other, also when there
+  are more than two, e.g., in three bib files.  Groups of more than 5 copies
+  are not searched further, and a warning lists them.
+
 #### Example
 If you want to keep only the entries of `literature.bib` that are cited in the
 document `paper.tex`, compile the document and use the following command
 ```bash
 bibtex-tools filter-cited --bbl paper.bbl -o paper.bib literature.bib
+```
+To combine your bib file with the one of a coauthor, without duplicates:
+```bash
+bibtex-tools filter-cited --bbl paper.bbl --remove-duplicates -o paper.bib mine.bib theirs.bib
 ```
 
 
