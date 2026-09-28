@@ -697,9 +697,9 @@ const FILE_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a
 
 // The name of a file above its entries, which stays at the top of the pane
 // while its entries are shown
-function sourceHead(name, attrs = "", label = "") {
+function sourceHead(name, attrs = "") {
   return `<div class="l sep src-head"${attrs}><span class="n"></span>` +
-    `<span class="t">${FILE_ICON}${label}<span class="src-name">${escapeHtml(name)}</span></span></div>`;
+    `<span class="t">${FILE_ICON}<span class="src-name">${escapeHtml(name)}</span></span></div>`;
 }
 
 function badge(kind, text, attrs = "") {
@@ -769,11 +769,6 @@ function renderPreview(unresolved) {
     return;
   }
   const parts = [];
-  // The file of the entry at the top, see updatePreviewSource
-  if (state.sources.length > 1 && r.entries.length) {
-    parts.push(sourceHead("", ` id="preview-source" title="The file of the entry at the top"`,
-      `<span class="src-label">from</span>`));
-  }
   r.entries.forEach((out, idx) => {
     const lines = out.text.split("\n");
     lines.pop();
@@ -821,7 +816,6 @@ function render() {
   for (const pane of Object.values(panes)) handled(pane);
   restoreAnchor(panes[state.lastPane], anchor);
   if (state.linkScroll) align(panes[state.lastPane], panes[other(state.lastPane)]);
-  updatePreviewSource();
 
   const overlay = $("#overlay");
   const waiting = state.sources.length && (!state.ready || !r);
@@ -1128,7 +1122,6 @@ function follow(from, to, previous) {
 for (const name of ["original", "preview"]) {
   const pane = panes[name];
   pane.el.addEventListener("scroll", () => {
-    if (name === "preview") updatePreviewSource();
     clearTimeout(pane.trimTimer);
     pane.trimTimer = setTimeout(() => trimPads(pane), 250);
     if (pane.expected !== null && Math.abs(pane.el.scrollTop - pane.expected) < 1) return;
@@ -1153,24 +1146,6 @@ for (const name of ["original", "preview"]) {
     if (!entry || !entry.dataset.origin || !window.getSelection().isCollapsed) return;
     select(entry.dataset.origin, name);
   });
-}
-
-// Show which file the entry at the top of the preview is from
-function updatePreviewSource() {
-  const head = $("#preview-source");
-  if (!head) return;
-  const pane = panes.preview;
-  // The first entry that is visible below the name
-  const y = pane.el.scrollTop + head.getBoundingClientRect().bottom - pane.el.getBoundingClientRect().top;
-  let idx = Math.max(0, entryAt(pane, y));
-  if (idx < pane.entries.length - 1 && pane.entries[idx].offsetTop + pane.entries[idx].offsetHeight <= y) idx += 1;
-  const el = pane.entries[idx];
-  const source = el && state.sources[Number(el.dataset.origin.split(":")[0])];
-  const name = source ? source.name : "";
-  if (head.dataset.name !== name) {
-    head.dataset.name = name;
-    $(".src-name", head).textContent = name;
-  }
 }
 
 // Lines wrap, so the positions of the entries change with the width

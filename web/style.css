@@ -466,15 +466,12 @@ body:not(.has-files) .gutter { display: none; }
 .l.rm .t { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--rm-bar) 60%, transparent); }
 .l.sep .t { color: var(--muted); font-family: var(--ui-font); font-size: 12px; font-weight: 600; }
 .l.sep { margin: 10px 0 4px; padding: 3px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-2); }
-.content > .l.sep:first-child,
 .content > .src:first-child > .l.sep { margin-top: -6px; border-top: 0; }
-/* The name of the file stays at the top while its entries are shown */
-/* The pane's padding at the top is not covered otherwise */
-.src-head { position: sticky; top: -6px; z-index: 2; }
-.src > .src-head { cursor: pointer; }
-.src > .src-head:hover .src-name { color: var(--text); }
+/* The name of a file stays at the top while its entries are shown. It sticks
+   above the padding of the pane, which is not covered otherwise. */
+.src-head { position: sticky; top: -6px; z-index: 2; cursor: pointer; }
+.src-head:hover .src-name { color: var(--text); }
 .src-head svg { width: 13px; height: 13px; margin-right: 6px; vertical-align: -2px; }
-.src-label { margin-right: 4px; font-weight: 400; }
 
 .entry { position: relative; cursor: pointer; }
 .entry:hover { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }
