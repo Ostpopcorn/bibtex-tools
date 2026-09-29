@@ -76,6 +76,21 @@ def test_not_replace_converted_unicode():
             (clean_entry["journal"] == r'With 6$\times$6 math expressions') and
             (clean_entry['pages'] == r'12 \& 13'))
 
+def test_replace_unicode_keeps_braces_and_latex():
+    entry = {KEY_ID: "Key_1", KEY_ENTRYTYPE: "article",
+             "title": "{{A} Study of {IEEE} Signals & Systems at 50% on $\\alpha_1$}",
+             "author": "Erdős, Paul and Bj{\\\"o}rn, Author",
+             "journal": "Newton's Journal \\& Co.",
+             "url": "https://example.org/x_y~z#frag",
+             "doi": "10.1000/ab_c"}
+    clean_entry = clean_bib_file.replace_unicode_in_entry(dict(entry))
+    assert clean_entry["title"] == ("{{A} Study of {IEEE} Signals \\& Systems "
+                                    "at 50\\% on $\\alpha_1$}")
+    assert clean_entry["author"] == "Erd{\\H o}s, Paul and Bj{\\\"o}rn, Author"
+    assert clean_entry["journal"] == entry["journal"]
+    for _field in (KEY_ID, "url", "doi"):
+        assert clean_entry[_field] == entry[_field]
+
 def test_get_duplicate_entries_number():
     bib_database = clean_bib_file.load_bib_file(DUPLICATE_CONTENT)
     results = clean_bib_file.get_duplicate_entries(bib_database)

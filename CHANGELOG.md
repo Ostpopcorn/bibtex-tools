@@ -65,6 +65,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- Replacing unicode characters (`clean`, `replace_unicode_in_entry`) converts
+  only the non-ASCII characters, e.g., `é` to `{\'e}`, and a bare `&`, `%`,
+  or `#` outside of math. Before, it removed all braces, e.g., of shielded
+  titles and acronyms like `{IEEE}`, and changed ASCII characters, e.g.,
+  `Newton's` to `Newton\textquotesingle s` and `_` in URLs and DOIs to `\_`.
+  The fields `url`, `doi`, `eprint`, and `file` are no longer changed.
 - Cleaning the `eprint` field removes only the prefix `arXiv:`. Before,
   letters of `arXiv:` were removed from both ends, e.g., `arXiv:astro-ph/0601001`
   became `stro-ph/0601001`.
