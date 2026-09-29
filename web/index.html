@@ -125,7 +125,7 @@
           <label class="check"><input type="checkbox" data-setting="modernize.shield"> <span>Shield titles <span class="muted">{…}</span></span></label>
           <label class="check"><input type="checkbox" data-setting="modernize.iso4"> <span>ISO 4 journal names</span></label>
           <label class="check"><input type="checkbox" data-setting="modernize.ids"> <span>Generate IDs</span></label>
-          <label class="check" title="Looks up the eprint IDs on arxiv.org"><input type="checkbox" data-setting="modernize.arxiv"> <span>arXiv categories <span class="muted" id="arxiv-state"></span></span></label>
+          <label class="check" title="Looks up the eprint IDs on arxiv.org, which uses the internet"><input type="checkbox" data-setting="modernize.arxiv"> <span>arXiv categories <span class="muted" id="arxiv-state"></span></span></label>
         </div>
         <div class="option-row">
           <span class="option-label">arXiv preprints</span>
@@ -309,6 +309,23 @@
       <span class="spacer"></span>
       <button class="btn" data-dialog-close>Cancel</button>
       <button class="btn primary" id="paste-add">Add</button>
+    </footer>
+  </dialog>
+
+  <dialog class="dialog confirm-dialog" id="arxiv-dialog" aria-labelledby="arxiv-title" aria-describedby="arxiv-text">
+    <header class="dialog-head">
+      <h2 id="arxiv-title">Look up arXiv categories online?</h2>
+      <span class="spacer"></span>
+      <button class="btn ghost icon-btn" data-dialog-close aria-label="Close">×</button>
+    </header>
+    <div class="confirm-body" id="arxiv-text">
+      <p>This setting uses the internet. To add the primary category of your preprints, e.g., <code>cs.IT</code>, BibTeX Tools asks the public API of arXiv at <code>export.arxiv.org</code>.</p>
+      <p>Only the arXiv IDs of your entries, e.g., <code>2009.09852</code>, are sent. Like any website, arXiv also sees your IP address. Your files and everything else stay in your browser.</p>
+    </div>
+    <footer class="dialog-foot">
+      <span class="spacer"></span>
+      <button class="btn" data-dialog-close>Cancel</button>
+      <button class="btn primary" id="arxiv-allow">Look up categories</button>
     </footer>
   </dialog>
 

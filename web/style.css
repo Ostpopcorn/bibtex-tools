@@ -715,6 +715,10 @@ svg.icon-fill { fill: currentColor; stroke: none; }
 .about-link small { display: block; font-size: 12.5px; color: var(--muted); }
 .about-small { font-size: 12.5px; line-height: 1.55; color: var(--muted); }
 .dialog-foot .hint { color: var(--rm-text); }
+.confirm-dialog { width: min(520px, calc(100vw - 32px)); }
+.confirm-body { display: flex; flex-direction: column; gap: 10px; padding: 6px 20px 0; font-size: 13.5px; line-height: 1.55; }
+.confirm-body p { margin: 0; }
+.confirm-body code { font-size: 12.5px; }
 .paste-dialog { width: min(820px, calc(100vw - 32px)); }
 .paste-dialog .dialog-head { flex-wrap: wrap; row-gap: 2px; }
 .paste-dialog .dialog-head .meta { order: 3; flex-basis: 100%; }
