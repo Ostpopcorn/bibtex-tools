@@ -7,11 +7,11 @@ from difflib import SequenceMatcher
 from pprint import pprint
 
 from bibtexparser.bibdatabase import BibDatabase
-from bibtexparser.customization import string_to_latex, convert_to_unicode
+from bibtexparser.latexenc import unicode_to_latex_map
 
 from .const import (KEY_ID, KEY_TITLE, KEY_AUTHOR, KEY_EDITOR, KEY_ENTRYTYPE,
                     KEYS_JOURNAL, KEY_BOOKTITLE, KEY_YEAR, KEY_DATE, KEY_PAGES,
-                    KEY_DOI, KEY_EPRINT, KEY_ISBN)
+                    KEY_DOI, KEY_EPRINT, KEY_ISBN, KEY_IDS, KEY_URL)
 from .util import load_bib_file, write_bib_database, getnames
 
 def repeat(num_times):
@@ -301,16 +301,30 @@ def remove_fields_from_entry(entry, remove_fields=None):
 
 remove_fields_from_database = cleaning_function()(remove_fields_from_entry)
 
-def _replace_textbackslash(matchobj):
-    return matchobj.group(0).replace(r'\textbackslash ', '\\')
+#: Fields that are keys or are read verbatim, where LaTeX would break them
+UNICODE_SKIP_FIELDS = (KEY_ID, KEY_ENTRYTYPE, KEY_IDS, KEY_URL, KEY_DOI,
+                       KEY_EPRINT, "file", "pdf", "urlraw")
+
+_RE_MATH = re.compile(r"(\$[^$]*\$)")
+_RE_BARE_SPECIAL = re.compile(r"(?<!\\)([&%#])")
+
+def unicode_to_latex(text):
+    """Convert the non-ASCII characters of a text to LaTeX, e.g., `é` to
+    `{\\'e}`, and escape a bare `&`, `%`, or `#` outside of math. Existing
+    LaTeX and braces, e.g., `{IEEE}` or `{\\"o}`, are kept."""
+    parts = _RE_MATH.split(text)
+    for _idx, _part in enumerate(parts):
+        _part = "".join(unicode_to_latex_map.get(c, c) if ord(c) > 127 else c
+                        for c in _part)
+        if _idx % 2 == 0:
+            _part = _RE_BARE_SPECIAL.sub(r"\\\1", _part)
+        parts[_idx] = _part
+    return "".join(parts)
 
 def replace_unicode_in_entry(entry):
-    entry = convert_to_unicode(entry)
     for _field in entry:
-        if _field not in ("ID",):
-            unicode_free = string_to_latex(entry[_field])
-            math_dollar = re.sub(r'\\textdollar (.*?)( *)\\textdollar ', r'$\g<1>$', unicode_free)
-            entry[_field] = re.sub(r'\$(.*)(\\textbackslash )(.*)\$', _replace_textbackslash, math_dollar)
+        if _field not in UNICODE_SKIP_FIELDS:
+            entry[_field] = unicode_to_latex(entry[_field])
     return entry
 
 replace_unicode_in_database = cleaning_function()(replace_unicode_in_entry)

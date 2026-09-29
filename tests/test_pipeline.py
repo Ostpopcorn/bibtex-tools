@@ -24,6 +24,16 @@ def _sources(*bib_files):
     return sources
 
 
+def test_unicode_keeps_shielded_titles():
+    source = ("@article{erdos1960,\n  author = {Paul Erdős and Alfréd Rényi},\n"
+              "  title = {On the Evolution of {IEEE} Random Graphs},\n}\n")
+    options = pipeline.PipelineOptions(clean_fields=tuple(CLEAN_FUNC),
+                                       shield_title=True, replace_unicode=True)
+    entry = pipeline.run_pipeline([("a.bib", source)], options).entries[0].entry
+    assert entry["title"] == "{On the Evolution of {IEEE} Random Graphs}"
+    assert entry["author"] == "Erd{\\H o}s, Paul and R{\\'e}nyi, Alfr{\\'e}d"
+
+
 @pytest.mark.parametrize("remove_duplicates", (True, False))
 def test_modernize_like_cli(remove_duplicates):
     kwargs = dict(remove_fields=DEFAULT_REMOVE, replace_ids=True, iso4=True,
