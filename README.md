@@ -35,7 +35,8 @@ all the work.  It was made by Ostpopcorn, and its code is in
 
 The web app runs `bibtextools` in your browser with
 [Pyodide](https://pyodide.org), so your files never leave your computer.  Only
-the eprint IDs are sent to arXiv, if you turn on the arXiv categories.
+the eprint IDs are sent to arXiv, if you turn on the arXiv categories.  The app
+asks before it does.
 
 To run the web app locally, build it and serve it on http://localhost:8000 with
 ```bash

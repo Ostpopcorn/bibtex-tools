@@ -7,6 +7,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Bumped when the defaults change, so that they apply to everybody once
 const SETTINGS_KEY = "bibtextools.settings.v2";
 const ARXIV_KEY = "bibtextools.arxiv.v1";
+const ARXIV_CONSENT_KEY = "bibtextools.arxiv-allowed.v1";
 const THEME_KEY = "bibtextools.theme";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
 const ARXIV_STYLES = ["keep", "eprint", "journal"];
@@ -40,6 +41,7 @@ const state = {
   abbr: null,           // {name, text}
   decisions: new Map(), // "origin|origin" of a duplicate pair -> origin to remove, or null to keep both
   arxiv: loadJson(ARXIV_KEY, {}), // eprint -> primary category
+  arxivAllowed: loadJson(ARXIV_CONSENT_KEY, false), // the lookup on arXiv was allowed
   arxivTried: new Set(),
   arxivBusy: false,
   response: null,
@@ -310,6 +312,18 @@ function enableSectionOf(element) {
 
 $("#options").addEventListener("change", (event) => {
   const input = event.target;
+  if (input.dataset.setting === "modernize.arxiv" && input.checked) {
+    // The lookup uses the internet, so it is only turned on after asking
+    input.checked = false;
+    askArxiv().then((allowed) => {
+      if (!allowed) return;
+      input.checked = true;
+      state.settings.modernize.arxiv = true;
+      enableSectionOf(input);
+      settingChanged();
+    });
+    return;
+  }
   if (input.dataset.setting) {
     setPath(state.settings, input.dataset.setting, input.checked);
   } else if (input.dataset.field) {
@@ -1317,9 +1331,42 @@ function missingEprints() {
   return r.eprints.filter((e) => !(e in state.arxiv) && !state.arxivTried.has(e));
 }
 
+// Ask before the first request to arXiv, which sends the eprint IDs. The
+// answer is remembered, so that the lookup can start by itself later, e.g.,
+// after a reload. Turning the setting on always asks.
+const arxivDialog = $("#arxiv-dialog");
+$("#arxiv-allow").addEventListener("click", () => arxivDialog.close("allow"));
+arxivDialog.addEventListener("click", (event) => {
+  if (event.target === arxivDialog || event.target.closest("[data-dialog-close]")) arxivDialog.close();
+});
+
+function askArxiv() {
+  return new Promise((resolve) => {
+    arxivDialog.returnValue = "";
+    arxivDialog.addEventListener("close", () => {
+      const allowed = arxivDialog.returnValue === "allow";
+      if (allowed) {
+        state.arxivAllowed = true;
+        saveJson(ARXIV_CONSENT_KEY, true);
+      }
+      resolve(allowed);
+    }, { once: true });
+    arxivDialog.showModal();
+  });
+}
+
 async function maybeFetchArxiv() {
   const eprints = missingEprints();
-  if (!eprints.length || state.arxivBusy) return;
+  if (!eprints.length || state.arxivBusy || arxivDialog.open) return;
+  if (!state.arxivAllowed) {
+    // The setting came from a shared link or from before this question
+    if (!(await askArxiv())) {
+      state.settings.modernize.arxiv = false;
+      settingChanged();
+      return;
+    }
+    if (state.arxivBusy) return;
+  }
   state.arxivBusy = true;
   renderArxivState();
   let found = 0;
