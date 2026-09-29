@@ -28,7 +28,9 @@ const DEFAULT_SETTINGS = {
   modernize: { enabled: true, fields: null, shield: true, iso4: false, ids: false, arxiv: false, arxivStyle: "keep" },
   remove: { enabled: true, fields: null },
   duplicates: { mode: "choose", rename: true },
-  sort: true,
+  // The output is always sorted by ID. The preview keeps the order of the
+  // files by default, so that linked scrolling moves both panes together.
+  sortPreview: false,
 };
 
 const state = {
@@ -228,7 +230,7 @@ function buildRequest() {
       duplicates: s.duplicates.mode,
       decisions: [...state.decisions].map(([pair, remove]) => [pair.split("|"), remove]),
       rename_duplicate_ids: s.duplicates.rename,
-      sort_by_id: s.sort,
+      sort_by_id: true,
     },
     arxiv_categories: state.arxiv,
   };
@@ -329,6 +331,12 @@ $("#options").addEventListener("change", (event) => {
 $("#pane-preview").addEventListener("change", (event) => {
   if (event.target.dataset.setting) {
     setPath(state.settings, event.target.dataset.setting, event.target.checked);
+    // Sorting the preview does not change the output, so Python is not needed
+    if (event.target.dataset.setting === "sortPreview") {
+      saveSettings();
+      if (state.response) render();
+      return;
+    }
     settingChanged();
   }
 });
@@ -782,6 +790,17 @@ function renderOriginal(outByOrigin, unresolved) {
   panes.original.content.innerHTML = parts.join("");
 }
 
+// The entries of the output in the order of the files, like in the original,
+// or sorted by ID, like the output
+function previewEntries(r) {
+  if (state.settings.sortPreview) return r.entries;
+  const rank = new Map();
+  for (const source of r.sources) {
+    for (const entry of source.entries) if (entry.origin) rank.set(entry.origin, rank.size);
+  }
+  return [...r.entries].sort((a, b) => rank.get(a.origin) - rank.get(b.origin));
+}
+
 function renderPreview(unresolved) {
   const r = state.response;
   if (!r) {
@@ -789,7 +808,8 @@ function renderPreview(unresolved) {
     return;
   }
   const parts = [];
-  r.entries.forEach((out, idx) => {
+  let line = 1;
+  previewEntries(r).forEach((out, idx) => {
     const lines = out.text.split("\n");
     lines.pop();
     const lineCls = new Array(lines.length).fill("");
@@ -808,9 +828,10 @@ function renderPreview(unresolved) {
     if (out.id_changed || out.type_changed) lineCls[0] = "chg";
     if (out.origin === state.selected) cls += " selected";
     parts.push(`<div class="${cls}" data-origin="${out.origin}">`);
-    lines.forEach((text, i) => parts.push(lineHtml(out.line + i, text, lineCls[i], i === 0 ? label : "")));
+    lines.forEach((text, i) => parts.push(lineHtml(line + i, text, lineCls[i], i === 0 ? label : "")));
     parts.push("</div>");
-    if (idx < r.entries.length - 1) parts.push(lineHtml(out.line + lines.length, ""));
+    if (idx < r.entries.length - 1) parts.push(lineHtml(line + lines.length, ""));
+    line += lines.length + 1;
   });
   if (!r.entries.length) {
     parts.push(`<div class="l"><span class="n"></span><span class="t muted">No entries left with these settings.</span></div>`);
@@ -1411,7 +1432,7 @@ const LINK_SETTINGS = {
   fields: "remove.fields",
   duplicates: "duplicates.mode",
   rename: "duplicates.rename",
-  sort: "sort",
+  sort: "sortPreview",
 };
 
 // The value of a setting, with the default lists of fields filled in
