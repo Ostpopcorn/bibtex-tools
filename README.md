@@ -22,14 +22,18 @@ all the work.  It was made by Ostpopcorn, and its code is in
 
 ![Screenshot of the web app](web/screenshot.png)
 
-* Switch the steps of all commands on and off at the top: `filter-cited` (with
-  your `.bbl` file), `clean`, `modernize`, removing fields, and duplicate
-  entries.  Open, drop, or paste (Ctrl+V) bib files, `.bbl` files, and
-  abbreviations.  Multiple bib files are combined like with `combine`.
+* Every setting works on its own and is in the settings on the left: keep
+  only the entries cited in your `.bbl` file, expand `@string` abbreviations,
+  duplicate entries, cleaning of fields, titles, ISO 4 journal names, unicode
+  to LaTeX, arXiv preprints, keys, and removing fields.  Hide the settings to
+  a bar on the left to give the files more room.  Open, drop, or paste
+  (Ctrl+V) bib files, `.bbl` files, and abbreviations.  Multiple bib files are
+  combined like with `combine`.
 * Changed fields are highlighted on both sides, and removed fields and entries
   are marked in the original.  Click an entry to show it at the same height on
   the other side.
-* Choose which entry of each pair of duplicate entries to remove.
+* Choose which entry of each pair of duplicate entries to remove, with the
+  number of decided pairs.
 * _Share settings_ copies a link with your settings (not your files) for your
   colleagues.
 

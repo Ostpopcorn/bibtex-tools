@@ -54,181 +54,170 @@
     </div>
   </header>
 
-  <section class="options" id="options" aria-label="Settings">
-    <article class="card" data-section="filter">
-      <header class="card-head">
-        <label class="switch" title="Enable filter-cited">
-          <input type="checkbox" data-setting="filter.enabled"><span class="track"></span>
-        </label>
-        <div>
-          <h3>Filter cited</h3>
-          <p>Keep only entries cited in a <code>.bbl</code> file</p>
-        </div>
-      </header>
-      <div class="card-body">
-        <div class="file-actions">
-          <button class="btn small" data-pick="bbl" title="Upload the .bbl file of your document"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>
-          <button class="btn small" data-paste="bbl" title="Paste the content of a .bbl file"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste</button>
-        </div>
-        <div class="file-field" id="bbl-field" hidden>
-          <span class="file-name" id="bbl-name"></span>
-          <button class="btn ghost tiny icon-btn" data-clear="bbl" aria-label="Remove the .bbl file">×</button>
-        </div>
-        <p class="hint" id="bbl-info">Compile your document, then upload or paste its <code>.bbl</code> file.</p>
-        <div class="missing-keys" id="bbl-missing" aria-label="Cited keys that are not in your files" hidden></div>
-      </div>
-    </article>
-
-    <article class="card" data-section="clean">
-      <header class="card-head">
-        <label class="switch" title="Enable clean">
-          <input type="checkbox" data-setting="clean.enabled"><span class="track"></span>
-        </label>
-        <div>
-          <h3>Clean</h3>
-          <p>Expand abbreviations, convert unicode</p>
-        </div>
-      </header>
-      <div class="card-body">
-        <div class="file-actions">
-          <button class="btn small" data-pick="abbr" title="Upload a bib file with @string abbreviations, e.g., IEEEabbr.bib"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>
-          <button class="btn small" data-paste="abbr" title="Paste @string abbreviations"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste</button>
-        </div>
-        <div class="file-field" id="abbr-field" hidden>
-          <span class="file-name" id="abbr-name"></span>
-          <button class="btn ghost tiny icon-btn" data-clear="abbr" aria-label="Remove the abbreviations">×</button>
-        </div>
-        <p class="hint" id="abbr-hint">Upload or paste <code>@string</code> abbreviations, e.g., <code>IEEEabbr.bib</code>.</p>
-        <label class="check"><input type="checkbox" data-setting="clean.unicode"> <span>Unicode → LaTeX <span class="muted">(ä → {\"a})</span></span></label>
-      </div>
-    </article>
-
-    <article class="card wide" data-section="modernize">
-      <header class="card-head">
-        <label class="switch" title="Enable modernize">
-          <input type="checkbox" data-setting="modernize.enabled"><span class="track"></span>
-        </label>
-        <div>
-          <h3>Modernize</h3>
-          <p>Clean up fields for biblatex</p>
-        </div>
-      </header>
-      <div class="card-body">
-        <div class="pills" role="group" aria-label="Fields to clean up">
-          <label class="pill"><input type="checkbox" data-field="month"><span>Months</span></label>
-          <label class="pill"><input type="checkbox" data-field="pages"><span>Pages</span></label>
-          <label class="pill"><input type="checkbox" data-field="author"><span>Authors</span></label>
-          <label class="pill"><input type="checkbox" data-field="title"><span>Titles</span></label>
-          <label class="pill"><input type="checkbox" data-field="eprint"><span>Eprints</span></label>
-        </div>
-        <div class="check-grid">
-          <label class="check"><input type="checkbox" data-setting="modernize.shield"> <span>Shield titles <span class="muted">{…}</span></span></label>
-          <label class="check"><input type="checkbox" data-setting="modernize.iso4"> <span>ISO 4 journal names</span></label>
-          <label class="check"><input type="checkbox" data-setting="modernize.ids"> <span>Generate IDs</span></label>
-          <label class="check" title="Looks up the eprint IDs on arxiv.org, which uses the internet"><input type="checkbox" data-setting="modernize.arxiv"> <span>arXiv categories <span class="muted" id="arxiv-state"></span></span></label>
-        </div>
-        <div class="option-row">
-          <span class="option-label">arXiv preprints</span>
-          <div class="segmented" role="radiogroup" aria-label="Style of arXiv preprints">
-            <label title="Keep arXiv preprints as they are"><input type="radio" name="arxiv-style" value="keep"><span>Keep</span></label>
-            <label title="@misc with the ID in the eprint field, like arXiv exports them"><input type="radio" name="arxiv-style" value="eprint"><span>eprint</span></label>
-            <label title="@article with the ID in the journal field, like Google Scholar exports them"><input type="radio" name="arxiv-style" value="journal"><span>journal</span></label>
-          </div>
-        </div>
-        <p class="hint" id="arxiv-style-hint" hidden></p>
-      </div>
-    </article>
-
-    <article class="card wide" data-section="remove">
-      <header class="card-head">
-        <label class="switch" title="Enable removing fields">
-          <input type="checkbox" data-setting="remove.enabled"><span class="track"></span>
-        </label>
-        <div>
-          <h3>Remove fields</h3>
-          <p>Drop fields you do not need</p>
-        </div>
-        <button class="btn ghost tiny" id="remove-reset" title="Reset to the default fields">Reset</button>
-      </header>
-      <div class="card-body">
-        <div class="tags" id="remove-tags">
-          <input id="remove-input" list="field-suggestions" placeholder="Add field…" aria-label="Add a field to remove" autocomplete="off" spellcheck="false">
-        </div>
-        <datalist id="field-suggestions"></datalist>
-      </div>
-    </article>
-
-    <article class="card" data-section="duplicates">
-      <header class="card-head">
-        <div>
-          <h3>Duplicates</h3>
-          <p>The same work stored twice</p>
-        </div>
-      </header>
-      <div class="card-body">
-        <div class="segmented" role="radiogroup" aria-label="Duplicate entries">
-          <label><input type="radio" name="duplicates" value="keep"><span>Keep</span></label>
-          <label><input type="radio" name="duplicates" value="remove-shorter"><span>Remove shorter</span></label>
-          <label><input type="radio" name="duplicates" value="choose"><span>Choose</span></label>
-        </div>
-        <div class="row">
-          <label class="check"><input type="checkbox" data-setting="duplicates.rename"> <span>Rename duplicate IDs</span></label>
-          <button class="btn small" id="review" hidden>Review</button>
-        </div>
-      </div>
-    </article>
-  </section>
-
-  <main class="workspace" id="workspace">
-    <section class="empty" id="empty">
-      <div class="drop-card">
-        <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9 14 3-3 3 3"/></svg>
-        <h1>Drop your <code>.bib</code> files here</h1>
-        <p>Toggle the settings above and see the result next to the original, before you download it.</p>
-        <div class="drop-actions">
-          <button class="btn primary large" data-pick="bib">Open .bib files</button>
-          <button class="btn large" data-paste>Paste BibTeX</button>
-          <button class="btn large" id="example">Try an example</button>
-        </div>
-        <p class="paste-hint">You can also paste anywhere on this page with <kbd class="paste-key">Ctrl+V</kbd>.</p>
-        <p class="privacy">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-          Your files never leave your computer. Everything runs in your browser.
-        </p>
-        <p class="credit">A web version of <a href="https://github.com/klb2/bibtex-tools" target="_blank" rel="noopener">bibtex-tools</a> by Karl-Ludwig Besser (klb2).</p>
-      </div>
-    </section>
-
-    <section class="pane" id="pane-original" aria-label="Original">
-      <header class="pane-head">
-        <h2>Original</h2>
-        <span class="meta" id="original-meta"></span>
-        <span class="legend"><i class="sw rm"></i>removed <i class="sw chg"></i>changed</span>
-      </header>
-      <div class="code" id="original" tabindex="0"></div>
-    </section>
-
-    <div class="gutter">
-      <button class="link-toggle" id="link-scroll" aria-pressed="true" aria-label="Link scrolling">
-        <svg class="icon-linked" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        <svg class="icon-unlinked" viewBox="0 0 24 24" aria-hidden="true"><path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71"/><path d="M8 2v3"/><path d="M2 8h3"/><path d="M16 19v3"/><path d="M19 16h3"/></svg>
+  <div class="layout">
+    <div class="rail" id="rail">
+      <button class="rail-button" id="sidebar-show" aria-controls="sidebar" aria-expanded="false" title="Show the settings">
+        <span class="rail-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></span>
+        <span class="rail-label">Settings</span>
+        <span class="rail-badge" id="rail-badge" hidden></span>
       </button>
     </div>
 
-    <section class="pane" id="pane-preview" aria-label="Preview">
-      <header class="pane-head">
-        <h2>Preview</h2>
-        <span class="meta" id="preview-meta"></span>
-        <span class="legend"><i class="sw add"></i>added <i class="sw chg"></i>changed</span>
-        <label class="check compact" title="Sort the preview by ID, like the downloaded file. When this is off, the preview keeps the order of your files, so that linked scrolling moves both panes together. Copy and Download are always sorted by ID."><input type="checkbox" data-setting="sortPreview"> Sort by ID</label>
-      </header>
-      <div class="code" id="preview" tabindex="0"></div>
-      <div class="overlay" id="overlay">
-        <div class="spinner" aria-hidden="true"></div>
-        <p id="overlay-text">Starting Python…</p>
+    <aside class="sidebar" id="sidebar" aria-label="Settings">
+      <div class="sidebar-head">
+        <h2>Settings</h2>
+        <button class="btn ghost icon-btn" id="sidebar-hide" aria-label="Hide the settings" title="Hide the settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+        </button>
       </div>
-    </section>
-  </main>
+
+      <div class="sidebar-body" id="options">
+        <section class="sec" aria-labelledby="sec-latex">
+          <div class="sec-head"><h3 id="sec-latex">LaTeX files</h3><span class="sum">from your document</span></div>
+          <label class="check"><input type="checkbox" data-setting="cited.enabled"><span>Keep only the entries cited in a <code>.bbl</code> file</span></label>
+          <div class="indent">
+            <div class="file-row" id="bbl-actions">
+              <button class="btn small" data-pick="bbl" title="Upload the .bbl file of your document"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>
+              <button class="btn small" data-paste="bbl" title="Paste the content of a .bbl file"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste</button>
+            </div>
+            <div class="file-field" id="bbl-field" hidden>
+              <span class="file-name" id="bbl-name"></span>
+              <button class="btn ghost tiny icon-btn" data-clear="bbl" aria-label="Remove the .bbl file">×</button>
+            </div>
+            <p class="hint" id="bbl-info"></p>
+            <div class="key-list" id="bbl-missing" aria-label="Cited keys that are not in your files" hidden></div>
+          </div>
+          <label class="check"><input type="checkbox" data-setting="strings.enabled"><span>Expand <code>@string</code> abbreviations</span></label>
+          <div class="indent">
+            <div class="file-row" id="abbr-actions">
+              <button class="btn small" data-pick="abbr" title="Upload a bib file with @string abbreviations, e.g., IEEEabbr.bib"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>
+              <button class="btn small" data-paste="abbr" title="Paste @string abbreviations"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste</button>
+              <span class="hint" title="A bib file with @string definitions">e.g., <code>IEEEabbr.bib</code></span>
+            </div>
+            <div class="file-field" id="abbr-field" hidden>
+              <span class="file-name" id="abbr-name"></span>
+              <button class="btn ghost tiny icon-btn" data-clear="abbr" aria-label="Remove the abbreviations">×</button>
+            </div>
+            <p class="hint" id="abbr-info" hidden></p>
+            <div class="key-list" id="abbr-undefined" aria-label="Abbreviations that are not defined" hidden></div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="sec-duplicates">
+          <div class="sec-head"><h3 id="sec-duplicates">Duplicates</h3><span class="sum" id="dup-sum"></span></div>
+          <div class="segmented" role="radiogroup" aria-label="Duplicate entries">
+            <label title="Keep both entries of the same work"><input type="radio" name="duplicates" value="keep"><span>Keep both</span></label>
+            <label title="Remove the entry with less fields"><input type="radio" name="duplicates" value="remove-shorter"><span>Remove shorter</span></label>
+            <label title="Choose which entry to remove"><input type="radio" name="duplicates" value="choose"><span>Choose</span></label>
+          </div>
+          <button class="review" id="review" hidden>
+            <span class="review-row">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+              <span class="review-label" id="review-label">Review duplicates</span>
+              <span class="review-count" id="review-count"></span>
+            </span>
+            <span class="review-bar"><span class="review-fill" id="review-fill"></span></span>
+          </button>
+        </section>
+
+        <section class="sec" aria-labelledby="sec-fields">
+          <div class="sec-head"><h3 id="sec-fields">Fields</h3></div>
+          <label class="check"><input type="checkbox" data-field="pages"><span>Pages</span><span class="ex">17-61 → 17--61</span></label>
+          <label class="check"><input type="checkbox" data-field="month"><span>Months</span><span class="ex">jul → 7</span></label>
+          <label class="check"><input type="checkbox" data-field="author"><span>Names</span><span class="ex">Paul Erdős → Erdős, Paul</span></label>
+          <label class="check"><input type="checkbox" data-field="eprint"><span>Eprints</span><span class="ex">arXiv:2009.09852 → 2009.09852</span></label>
+          <label class="check"><input type="checkbox" data-setting="fields.iso4"><span>ISO 4 journal names</span><span class="ex">Bell Syst. Tech. J.</span></label>
+          <label class="check"><input type="checkbox" data-setting="fields.unicode"><span>Unicode → LaTeX</span><span class="ex">ä → {\"a}</span></label>
+          <div class="option-row">
+            <span class="option-label" id="titles-label">Titles</span>
+            <div class="segmented" role="radiogroup" aria-labelledby="titles-label">
+              <label title="Keep the titles as they are"><input type="radio" name="titles" value="keep"><span>Keep</span></label>
+              <label title="Put braces around acronyms, e.g., {IEEE}"><input type="radio" name="titles" value="acronyms"><span>Acronyms</span></label>
+              <label title="Put braces around the whole title"><input type="radio" name="titles" value="whole"><span>Whole title</span></label>
+            </div>
+          </div>
+          <p class="hint" id="titles-hint"></p>
+        </section>
+
+        <section class="sec" aria-labelledby="sec-arxiv">
+          <div class="sec-head"><h3 id="sec-arxiv">arXiv preprints</h3></div>
+          <div class="segmented" role="radiogroup" aria-label="Style of arXiv preprints">
+            <label title="Keep arXiv preprints as they are"><input type="radio" name="arxiv-style" value="keep"><span>Keep</span></label>
+            <label title="@misc with the ID in the eprint field, like arXiv exports them"><input type="radio" name="arxiv-style" value="eprint"><span>@misc, eprint</span></label>
+            <label title="@article with the ID in the journal field, like Google Scholar exports them"><input type="radio" name="arxiv-style" value="journal"><span>@article, journal</span></label>
+          </div>
+          <p class="hint" id="arxiv-style-hint" hidden></p>
+          <label class="check" title="Looks up the eprint IDs on arxiv.org, which uses the internet"><input type="checkbox" data-setting="arxiv.lookup"><span>Look up categories <span class="muted" id="arxiv-state"></span></span><span class="online"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>online</span></label>
+        </section>
+
+        <section class="sec" aria-labelledby="sec-keys">
+          <div class="sec-head"><h3 id="sec-keys">Keys</h3></div>
+          <label class="check" title="Entries with the same key get key:b, key:c, and so on. The first entry keeps its key, like LaTeX uses it."><input type="checkbox" data-setting="keys.rename"><span>Rename duplicate keys</span><span class="ex">key, key:b</span></label>
+          <label class="check" id="generate-keys"><input type="checkbox" data-setting="keys.generate"><span>Generate keys</span><span class="ex" id="generate-keys-ex">Shannon1948mathematical</span></label>
+        </section>
+
+        <section class="sec" aria-labelledby="sec-remove">
+          <div class="sec-head"><h3 id="sec-remove">Remove fields</h3><button class="btn ghost tiny" id="remove-reset" title="Reset to the default fields">Reset</button></div>
+          <div class="tags" id="remove-tags">
+            <input id="remove-input" list="field-suggestions" placeholder="Add field…" aria-label="Add a field to remove" autocomplete="off" spellcheck="false">
+          </div>
+          <datalist id="field-suggestions"></datalist>
+        </section>
+      </div>
+    </aside>
+    <div class="backdrop" id="sidebar-backdrop"></div>
+
+    <main class="workspace" id="workspace">
+      <section class="empty" id="empty">
+        <div class="drop-card">
+          <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9 14 3-3 3 3"/></svg>
+          <h1>Drop your <code>.bib</code> files here</h1>
+          <p>Choose the settings and see the result next to the original, before you download it.</p>
+          <div class="drop-actions">
+            <button class="btn primary large" data-pick="bib">Open .bib files</button>
+            <button class="btn large" data-paste>Paste BibTeX</button>
+            <button class="btn large" id="example">Try an example</button>
+          </div>
+          <p class="paste-hint">You can also paste anywhere on this page with <kbd class="paste-key">Ctrl+V</kbd>.</p>
+          <p class="privacy">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            Your files never leave your computer. Everything runs in your browser.
+          </p>
+          <p class="credit">A web version of <a href="https://github.com/klb2/bibtex-tools" target="_blank" rel="noopener">bibtex-tools</a> by Karl-Ludwig Besser (klb2).</p>
+        </div>
+      </section>
+
+      <section class="pane" id="pane-original" aria-label="Original">
+        <header class="pane-head">
+          <h2>Original</h2>
+          <span class="meta" id="original-meta"></span>
+          <span class="legend"><i class="sw rm"></i>removed <i class="sw chg"></i>changed</span>
+        </header>
+        <div class="code" id="original" tabindex="0"></div>
+      </section>
+
+      <div class="gutter">
+        <button class="link-toggle" id="link-scroll" aria-pressed="true" aria-label="Link scrolling">
+          <svg class="icon-linked" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <svg class="icon-unlinked" viewBox="0 0 24 24" aria-hidden="true"><path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71"/><path d="M8 2v3"/><path d="M2 8h3"/><path d="M16 19v3"/><path d="M19 16h3"/></svg>
+        </button>
+      </div>
+
+      <section class="pane" id="pane-preview" aria-label="Preview">
+        <header class="pane-head">
+          <h2>Preview</h2>
+          <span class="meta" id="preview-meta"></span>
+          <span class="legend"><i class="sw add"></i>added <i class="sw chg"></i>changed</span>
+          <label class="check compact" title="Sort the preview by ID, like the downloaded file. When this is off, the preview keeps the order of your files, so that linked scrolling moves both panes together. Copy and Download are always sorted by ID."><input type="checkbox" data-setting="sortPreview"> Sort by ID</label>
+        </header>
+        <div class="code" id="preview" tabindex="0"></div>
+        <div class="overlay" id="overlay">
+          <div class="spinner" aria-hidden="true"></div>
+          <p id="overlay-text">Starting Python…</p>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <footer class="status" id="status" aria-live="polite">
     <div class="status-left" id="status-counts"></div>

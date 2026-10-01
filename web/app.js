@@ -4,35 +4,60 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-// Bumped when the defaults change, so that they apply to everybody once
-const SETTINGS_KEY = "bibtextools.settings.v2";
+// Bumped when the settings change their shape. Settings of older versions
+// are converted, see `fromV2`.
+const SETTINGS_KEY = "bibtextools.settings.v3";
+const SETTINGS_V2_KEY = "bibtextools.settings.v2";
 const ARXIV_KEY = "bibtextools.arxiv.v1";
 const ARXIV_CONSENT_KEY = "bibtextools.arxiv-allowed.v1";
 const THEME_KEY = "bibtextools.theme";
+const SIDEBAR_KEY = "bibtextools.sidebar-hidden.v1";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
 const ARXIV_STYLES = ["keep", "eprint", "journal"];
+const TITLE_MODES = ["keep", "acronyms", "whole"];
 const ARXIV_STYLE_HINTS = {
   keep: "",
   eprint: "<code>@misc</code> with <code>eprint = {2009.09852}</code>, like arXiv. Published papers are not changed.",
   journal: "<code>@article</code> with <code>journal = {arXiv preprint arXiv:2009.09852}</code>, like Google Scholar. Published papers are not changed.",
 };
+const TITLE_HINTS = {
+  keep: "Titles stay as they are in your files.",
+  acronyms: "Braces around acronyms, e.g., <code>The {IEEE} Standard</code>, so that styles keep their case.",
+  whole: "Braces around the whole title, e.g., <code>{The IEEE Standard}</code>, so that styles keep its case.",
+};
 
 // Replaced by the defaults of bibtextools once Python is ready
 let defaults = {
   remove_fields: ["abstract", "annote", "bdsk-url-1", "date-added", "date-modified", "file", "owner", "timestamp"],
-  clean_fields: ["pages", "month", "eprint", "title", "author"],
+  clean_fields: ["pages", "month", "eprint", "author"],
 };
 
+// Every setting works on its own. Lists of fields are null for the defaults
+// of bibtextools.
 const DEFAULT_SETTINGS = {
+  cited: { enabled: false },   // keep only the entries cited in the .bbl file
+  strings: { enabled: false }, // expand the @string abbreviations
+  duplicates: { mode: "choose" },
+  fields: { clean: null, titles: "whole", iso4: false, unicode: false },
+  arxiv: { style: "keep", lookup: false },
+  keys: { rename: true, generate: false },
+  remove: { fields: null },
+  // The output is always sorted by ID. The preview keeps the order of the
+  // files by default, so that linked scrolling moves both panes together.
+  sortPreview: false,
+};
+
+// The settings before version 3, where the switch of a group, e.g.,
+// Modernize, turned off all of its settings
+const V2_SETTINGS = {
   filter: { enabled: false },
   clean: { enabled: false, unicode: false },
   modernize: { enabled: true, fields: null, shield: true, iso4: false, ids: false, arxiv: false, arxivStyle: "keep" },
   remove: { enabled: true, fields: null },
   duplicates: { mode: "choose", rename: true },
-  // The output is always sorted by ID. The preview keeps the order of the
-  // files by default, so that linked scrolling moves both panes together.
   sortPreview: false,
 };
+const V2_CLEAN_FIELDS = ["pages", "month", "eprint", "title", "author"];
 
 const state = {
   settings: loadSettings(),
@@ -110,14 +135,47 @@ function validSettings(settings) {
   if (!DUPLICATE_MODES.includes(settings.duplicates.mode)) {
     settings.duplicates.mode = DEFAULT_SETTINGS.duplicates.mode;
   }
-  if (!ARXIV_STYLES.includes(settings.modernize.arxivStyle)) {
-    settings.modernize.arxivStyle = DEFAULT_SETTINGS.modernize.arxivStyle;
+  if (!ARXIV_STYLES.includes(settings.arxiv.style)) {
+    settings.arxiv.style = DEFAULT_SETTINGS.arxiv.style;
+  }
+  if (!TITLE_MODES.includes(settings.fields.titles)) {
+    settings.fields.titles = DEFAULT_SETTINGS.fields.titles;
   }
   return settings;
 }
 
+// Convert settings of version 2, so that they give the same result
+function fromV2(stored) {
+  const old = merge(V2_SETTINGS, stored);
+  const modern = old.modernize;
+  const on = modern.enabled;
+  const fields = modern.fields ?? V2_CLEAN_FIELDS;
+  const titles = on && fields.includes("title");
+  return validSettings({
+    cited: { enabled: old.filter.enabled },
+    strings: { enabled: old.clean.enabled },
+    duplicates: { mode: old.duplicates.mode },
+    fields: {
+      clean: !on ? [] : modern.fields === null ? null : fields.filter((f) => f !== "title"),
+      titles: !titles ? "keep" : modern.shield ? "whole" : "acronyms",
+      iso4: on && modern.iso4,
+      unicode: old.clean.enabled && old.clean.unicode,
+    },
+    arxiv: { style: on ? modern.arxivStyle : "keep", lookup: on && modern.arxiv },
+    keys: { rename: old.duplicates.rename, generate: on && modern.ids },
+    remove: { fields: old.remove.enabled ? old.remove.fields : [] },
+    sortPreview: old.sortPreview,
+  });
+}
+
 function loadSettings() {
-  return validSettings(merge(DEFAULT_SETTINGS, loadJson(SETTINGS_KEY, {})));
+  const stored = loadJson(SETTINGS_KEY, null);
+  if (stored) return validSettings(merge(DEFAULT_SETTINGS, stored));
+  const old = loadJson(SETTINGS_V2_KEY, null);
+  if (!old) return structuredClone(DEFAULT_SETTINGS);
+  const settings = fromV2(old);
+  saveJson(SETTINGS_KEY, settings);
+  return settings;
 }
 
 function saveSettings() {
@@ -158,7 +216,7 @@ function toast(text) {
 }
 
 const removeFields = () => state.settings.remove.fields ?? defaults.remove_fields;
-const cleanFields = () => state.settings.modernize.fields ?? defaults.clean_fields;
+const cleanFields = () => state.settings.fields.clean ?? defaults.clean_fields;
 
 /* Python worker */
 
@@ -215,23 +273,22 @@ function setBusy(busy) {
 
 function buildRequest() {
   const s = state.settings;
-  const modernize = s.modernize.enabled;
   return {
     sources: state.sources,
-    bbl: s.filter.enabled && state.bbl ? state.bbl.text : null,
-    abbr: s.clean.enabled && state.abbr ? state.abbr.text : null,
+    bbl: s.cited.enabled && state.bbl ? state.bbl.text : null,
+    abbr: s.strings.enabled && state.abbr ? state.abbr.text : null,
     options: {
-      clean_fields: modernize ? cleanFields() : [],
-      shield_title: modernize && s.modernize.shield,
-      iso4: modernize && s.modernize.iso4,
-      replace_ids: modernize && s.modernize.ids,
-      arxiv: modernize && s.modernize.arxiv,
-      arxiv_style: modernize && s.modernize.arxivStyle !== "keep" ? s.modernize.arxivStyle : null,
-      remove_fields: s.remove.enabled ? removeFields() : [],
-      replace_unicode: s.clean.enabled && s.clean.unicode,
+      clean_fields: cleanFields(),
+      titles: s.fields.titles,
+      iso4: s.fields.iso4,
+      replace_unicode: s.fields.unicode,
+      arxiv: s.arxiv.lookup,
+      arxiv_style: s.arxiv.style !== "keep" ? s.arxiv.style : null,
+      generate_keys: s.keys.generate,
+      rename_duplicate_keys: s.keys.rename,
+      remove_fields: removeFields(),
       duplicates: s.duplicates.mode,
       decisions: [...state.decisions].map(([pair, remove]) => [pair.split("|"), remove]),
-      rename_duplicate_ids: s.duplicates.rename,
       sort_by_id: true,
     },
     arxiv_categories: state.arxiv,
@@ -270,27 +327,23 @@ function applySettingsToUI() {
   for (const input of $$("[data-field]")) {
     input.checked = cleanFields().includes(input.dataset.field);
   }
-  for (const input of $$("input[name=duplicates]")) {
-    input.checked = input.value === s.duplicates.mode;
-  }
-  for (const input of $$("input[name=arxiv-style]")) {
-    input.checked = input.value === s.modernize.arxivStyle;
+  const radios = { duplicates: s.duplicates.mode, "arxiv-style": s.arxiv.style, titles: s.fields.titles };
+  for (const [name, value] of Object.entries(radios)) {
+    for (const input of $$(`input[name=${name}]`)) input.checked = input.value === value;
   }
   const hint = $("#arxiv-style-hint");
-  hint.innerHTML = ARXIV_STYLE_HINTS[s.modernize.arxivStyle];
+  hint.innerHTML = ARXIV_STYLE_HINTS[s.arxiv.style];
   hint.hidden = !hint.innerHTML;
-  for (const card of $$(".card")) {
-    const toggle = $(".card-head [data-setting]", card);
-    const on = toggle ? toggle.checked : true;
-    card.classList.toggle("on", on && Boolean(toggle));
-    card.classList.toggle("off", !on);
-  }
-  $("[data-setting='modernize.shield']").disabled = !cleanFields().includes("title");
-  // New IDs would break the citations of the .bbl file
-  const ids = $("[data-setting='modernize.ids']");
-  ids.disabled = s.filter.enabled && Boolean(state.bbl);
-  ids.closest("label").title = ids.disabled
-    ? "Off while filtering by a .bbl file, since the keys must stay the cited ones" : "";
+  $("#titles-hint").innerHTML = TITLE_HINTS[s.fields.titles];
+  // New keys would break the citations of the .bbl file
+  const ids = $("[data-setting='keys.generate']");
+  ids.disabled = s.cited.enabled && Boolean(state.bbl);
+  const idsLabel = $("#generate-keys");
+  idsLabel.classList.toggle("off", ids.disabled);
+  idsLabel.title = ids.disabled
+    ? "Off while keeping only cited entries, since the keys must stay the cited ones"
+    : "Keys of the first author, the year, and the first word of the title";
+  $("#generate-keys-ex").textContent = ids.disabled ? "off while filtering" : "Shannon1948mathematical";
   renderTags();
   renderFilesInfo();
   renderReview();
@@ -302,24 +355,15 @@ function settingChanged() {
   schedule();
 }
 
-function enableSectionOf(element) {
-  const card = element.closest(".card");
-  const toggle = card && $(".card-head [data-setting]", card);
-  if (toggle && !toggle.checked && !toggle.contains(element) && element !== toggle) {
-    setPath(state.settings, toggle.dataset.setting, true);
-  }
-}
-
 $("#options").addEventListener("change", (event) => {
   const input = event.target;
-  if (input.dataset.setting === "modernize.arxiv" && input.checked) {
+  if (input.dataset.setting === "arxiv.lookup" && input.checked) {
     // The lookup uses the internet, so it is only turned on after asking
     input.checked = false;
     askArxiv().then((allowed) => {
       if (!allowed) return;
       input.checked = true;
-      state.settings.modernize.arxiv = true;
-      enableSectionOf(input);
+      state.settings.arxiv.lookup = true;
       settingChanged();
     });
     return;
@@ -330,15 +374,16 @@ $("#options").addEventListener("change", (event) => {
     const fields = new Set(cleanFields());
     if (input.checked) fields.add(input.dataset.field);
     else fields.delete(input.dataset.field);
-    state.settings.modernize.fields = defaults.clean_fields.filter((f) => fields.has(f));
+    state.settings.fields.clean = defaults.clean_fields.filter((f) => fields.has(f));
   } else if (input.name === "duplicates") {
     state.settings.duplicates.mode = input.value;
   } else if (input.name === "arxiv-style") {
-    state.settings.modernize.arxivStyle = input.value;
+    state.settings.arxiv.style = input.value;
+  } else if (input.name === "titles") {
+    state.settings.fields.titles = input.value;
   } else {
     return;
   }
-  if (input.closest(".card-body")) enableSectionOf(input);
   settingChanged();
 });
 
@@ -371,6 +416,46 @@ $("#link-scroll").addEventListener("click", () => {
 });
 renderLinkScroll();
 
+/* Sidebar with the settings */
+
+// On wide screens, the settings are next to the panes and can be hidden to
+// a bar on the left, which is remembered. On narrow screens, they are hidden
+// to the bar and open over the panes.
+const narrow = matchMedia("(max-width: 1100px)");
+const sidebar = { hidden: loadJson(SIDEBAR_KEY, false) === true, open: false };
+
+function renderSidebar() {
+  const shown = narrow.matches ? sidebar.open : !sidebar.hidden;
+  document.body.classList.toggle("settings-shown", shown);
+  document.body.classList.toggle("settings-overlay", narrow.matches && shown);
+  $("#sidebar-show").setAttribute("aria-expanded", String(shown));
+}
+
+function showSettings(show) {
+  if (narrow.matches) {
+    sidebar.open = show;
+  } else {
+    sidebar.hidden = !show;
+    saveJson(SIDEBAR_KEY, sidebar.hidden);
+  }
+  renderSidebar();
+  $(show ? "#sidebar-hide" : "#sidebar-show").focus();
+}
+
+$("#rail").addEventListener("click", () => showSettings(true));
+$("#sidebar-hide").addEventListener("click", () => showSettings(false));
+$("#sidebar-backdrop").addEventListener("click", () => showSettings(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && narrow.matches && sidebar.open && !document.querySelector("dialog[open]")) {
+    showSettings(false);
+  }
+});
+narrow.addEventListener("change", () => {
+  sidebar.open = false;
+  renderSidebar();
+});
+renderSidebar();
+
 /* Remove fields */
 
 function renderTags() {
@@ -398,7 +483,6 @@ function renderTags() {
 
 function setRemoveFields(fields) {
   state.settings.remove.fields = fields;
-  state.settings.remove.enabled = true;
   settingChanged();
 }
 
@@ -461,7 +545,7 @@ async function openFiles(files, { add = true } = {}) {
 
 function setAuxFile(kind, file) {
   state[kind] = file;
-  if (file) state.settings[kind === "bbl" ? "filter" : "clean"].enabled = true;
+  if (file) state.settings[kind === "bbl" ? "cited" : "strings"].enabled = true;
   saveSettings();
   applySettingsToUI();
   schedule(0);
@@ -545,10 +629,10 @@ function addPasted(kind, text) {
     toast(`Added the pasted text as ${name}`);
   } else if (kind === "bbl") {
     setAuxFile("bbl", { name: "pasted.bbl", text });
-    toast("Added the pasted .bbl file to Filter cited");
+    toast("Added the pasted .bbl file: only cited entries are kept");
   } else {
     setAuxFile("abbr", { name: "pasted abbreviations", text });
-    toast("Added the pasted abbreviations to Clean");
+    toast("Added the pasted abbreviations, which are expanded now");
   }
   return true;
 }
@@ -665,42 +749,64 @@ addMenu.addEventListener("keydown", (event) => {
   }
 });
 
+function keyChips(list, keys) {
+  list.replaceChildren(...keys.map((key) => {
+    const chip = document.createElement("code");
+    chip.textContent = key;
+    chip.title = key;
+    return chip;
+  }));
+  list.hidden = !keys.length;
+}
+
 function renderFilesInfo() {
   for (const kind of ["bbl", "abbr"]) {
     const file = state[kind];
+    $(`#${kind}-actions`).hidden = Boolean(file);
     $(`#${kind}-field`).hidden = !file;
     $(`#${kind}-name`).textContent = file ? file.name : "";
-    if (kind === "abbr") $("#abbr-hint").hidden = Boolean(file);
   }
+  const r = state.response;
+
+  // The .bbl file: how many entries are cited, and which are not found
   const info = $("#bbl-info");
-  const list = $("#bbl-missing");
-  const cited = state.response && state.response.cited;
+  const cited = r && r.cited;
+  let missing = [];
   info.classList.remove("warn");
   info.title = "";
-  list.replaceChildren();
-  list.hidden = true;
   if (!state.bbl) {
-    info.innerHTML = "Compile your document, then upload or paste its <code>.bbl</code> file.";
-  } else if (!state.settings.filter.enabled) {
-    info.textContent = "Turned off.";
+    info.textContent = "";
+  } else if (!state.settings.cited.enabled) {
+    info.textContent = "Turned off: all entries are kept.";
+  } else if (!state.sources.length) {
+    info.textContent = "Open your bib files to keep their cited entries.";
   } else if (cited) {
-    const missing = cited.missing.length;
+    missing = cited.missing;
     info.innerHTML = `<strong>${cited.count}</strong> cited · <strong>${cited.kept}</strong> ${cited.kept === 1 ? "entry" : "entries"} kept` +
-      (missing ? ` · <strong>${missing}</strong> not in your files:` : "");
+      (missing.length ? ` · <strong>${missing.length}</strong> not in your files:` : "");
     info.title = `Read from a ${cited.backend} .bbl file`;
-    if (missing) {
-      info.classList.add("warn");
-      for (const key of cited.missing) {
-        const chip = document.createElement("code");
-        chip.textContent = key;
-        chip.title = key;
-        list.append(chip);
-      }
-      list.hidden = false;
-    }
+    info.classList.toggle("warn", missing.length > 0);
   } else {
     info.textContent = "Reading…";
   }
+  info.hidden = !info.textContent;
+  keyChips($("#bbl-missing"), missing);
+
+  // Abbreviations (@string) that are used in the bib files but not defined,
+  // which are kept as text
+  const abbrInfo = $("#abbr-info");
+  const undefinedNames = (r && r.undefined_strings) || [];
+  const expanding = state.settings.strings.enabled && state.abbr;
+  abbrInfo.classList.toggle("warn", Boolean(expanding && undefinedNames.length));
+  if (undefinedNames.length) {
+    abbrInfo.innerHTML = expanding
+      ? `<strong>${undefinedNames.length}</strong> not defined in ${escapeHtml(state.abbr.name)}, kept as text:`
+      : `<strong>${undefinedNames.length}</strong> in your files, kept as text${state.abbr ? "" : " until you add their definitions"}:`;
+  } else {
+    abbrInfo.textContent = state.abbr && !state.settings.strings.enabled ? "Turned off." : "";
+  }
+  abbrInfo.hidden = !abbrInfo.textContent;
+  keyChips($("#abbr-undefined"), undefinedNames);
 }
 
 /* Drag and drop */
@@ -949,16 +1055,35 @@ function renderStatus() {
   }
 }
 
+// The pairs of duplicates to decide: pairs whose other entry was already
+// removed no longer matter, and are not counted
+function reviewProgress() {
+  const r = state.response;
+  if (!r || state.settings.duplicates.mode !== "choose" || !r.duplicate_pairs?.length) return null;
+  const decided = r.decided_pairs.length;
+  const total = decided + r.unresolved_pairs.length;
+  return { decided, total, left: total - decided };
+}
+
 function renderReview() {
   const button = $("#review");
-  const r = state.response;
-  const pairs = r && r.duplicate_pairs;
-  const choose = state.settings.duplicates.mode === "choose";
-  button.hidden = !(choose && pairs && pairs.length);
-  if (!button.hidden) {
-    const open = r.unresolved_pairs.length;
-    button.textContent = open ? `Review ${plural(open, "pair")}` : `Review (${pairs.length})`;
-  }
+  const progress = reviewProgress();
+  const sum = $("#dup-sum");
+  const badge = $("#rail-badge");
+  button.hidden = !progress;
+  badge.hidden = !progress || !progress.left;
+  sum.textContent = !progress ? "" : progress.left ? `${plural(progress.left, "pair")} left` : "all decided";
+  if (!progress) return;
+  const { decided, total, left } = progress;
+  const done = left === 0;
+  button.classList.toggle("done", done);
+  button.classList.toggle("todo", decided === 0);
+  $("#review-label").textContent = done ? "All pairs decided" : "Review duplicates";
+  $("#review-count").textContent = `${decided} of ${total}`;
+  $("#review-fill").style.width = `${total ? (100 * decided) / total : 100}%`;
+  button.setAttribute("aria-label", `Review duplicates: ${decided} of ${plural(total, "pair")} decided`);
+  badge.textContent = String(left);
+  badge.title = `${plural(left, "pair")} of duplicates left to review`;
 }
 
 /* Selection and linked scrolling */
@@ -1255,7 +1380,7 @@ function renderDuplicate() {
   const decision = state.decisions.get(key);
   const texts = pair.map((origin) => r.pair_entries[origin].split("\n").slice(0, -1));
   const lineSets = texts.map((lines) => new Set(lines.slice(1)));
-  const undecided = pairs.filter(([a, b]) => !state.decisions.has(`${a}|${b}`)).length;
+  const undecided = r.unresolved_pairs.length;
   $("#dup-counter").textContent = `Pair ${dupIndex + 1} of ${pairs.length}` +
     (undecided ? ` · ${undecided} not decided` : " · all decided");
   // With a .bbl file, the kept entry takes over the cited key of the other
@@ -1327,7 +1452,7 @@ $("#review").addEventListener("click", () => openDuplicates());
 
 function missingEprints() {
   const r = state.response;
-  if (!r || !state.settings.modernize.enabled || !state.settings.modernize.arxiv) return [];
+  if (!r || !state.settings.arxiv.lookup) return [];
   return r.eprints.filter((e) => !(e in state.arxiv) && !state.arxivTried.has(e));
 }
 
@@ -1361,7 +1486,7 @@ async function maybeFetchArxiv() {
   if (!state.arxivAllowed) {
     // The setting came from a shared link or from before this question
     if (!(await askArxiv())) {
-      state.settings.modernize.arxiv = false;
+      state.settings.arxiv.lookup = false;
       settingChanged();
       return;
     }
@@ -1405,7 +1530,7 @@ function renderArxivState() {
   const label = $("#arxiv-state");
   const r = state.response;
   if (state.arxivBusy) label.textContent = "(looking up…)";
-  else if (r && state.settings.modernize.arxiv && r.eprints.length) {
+  else if (r && state.settings.arxiv.lookup && r.eprints.length) {
     const known = r.eprints.filter((e) => e in state.arxiv).length;
     label.textContent = `(${known}/${r.eprints.length})`;
   } else label.textContent = "";
@@ -1462,9 +1587,27 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// Settings in shared links, e.g., #unicode=on&duplicates=keep, by their
-// name in the link. Only settings that differ from the defaults are listed.
+// Settings in shared links, e.g., #latex=on&duplicates=keep, by their name
+// in the link. Only settings that differ from the defaults are listed.
 const LINK_SETTINGS = {
+  cited: "cited.enabled",
+  strings: "strings.enabled",
+  duplicates: "duplicates.mode",
+  cleanup: "fields.clean",
+  titles: "fields.titles",
+  iso4: "fields.iso4",
+  latex: "fields.unicode",
+  preprints: "arxiv.style",
+  arxiv: "arxiv.lookup",
+  rename: "keys.rename",
+  ids: "keys.generate",
+  fields: "remove.fields",
+  sort: "sortPreview",
+};
+
+// Links of version 2, which are converted with `fromV2`. They are told apart
+// by the names that only they have, e.g., modernize.
+const LINK_SETTINGS_V2 = {
   filter: "filter.enabled",
   clean: "clean.enabled",
   unicode: "clean.unicode",
@@ -1481,11 +1624,19 @@ const LINK_SETTINGS = {
   rename: "duplicates.rename",
   sort: "sortPreview",
 };
+const isV2Link = (params) => Object.keys(LINK_SETTINGS_V2).some((name) => !(name in LINK_SETTINGS) && params.has(name));
+
+// The lists of fields that a setting can have, or null for any field
+const LINK_LISTS = {
+  "fields.clean": () => defaults.clean_fields,
+  "remove.fields": () => null,
+  "modernize.fields": () => V2_CLEAN_FIELDS,
+};
 
 // The value of a setting, with the default lists of fields filled in
 function effectiveSetting(settings, path) {
   const value = getPath(settings, path);
-  if (path === "modernize.fields") return value ?? defaults.clean_fields;
+  if (path === "fields.clean") return value ?? defaults.clean_fields;
   if (path === "remove.fields") return value ?? defaults.remove_fields;
   return value;
 }
@@ -1503,30 +1654,36 @@ function settingsToLink(settings) {
   return parts.join("&");
 }
 
-function settingsFromLink(params) {
-  const settings = structuredClone(DEFAULT_SETTINGS);
-  for (const [name, path] of Object.entries(LINK_SETTINGS)) {
+function readLink(params, names, base) {
+  const settings = structuredClone(base);
+  for (const [name, path] of Object.entries(names)) {
     if (!params.has(name)) continue;
     const text = params.get(name).trim();
     const current = getPath(settings, path);
     if (typeof current === "boolean") {
       setPath(settings, path, ["on", "1", "true", "yes"].includes(text.toLowerCase()));
-    } else if (path.endsWith(".fields")) {
+    } else if (path in LINK_LISTS) {
       const fields = text.split(",").map((f) => f.trim().toLowerCase()).filter(Boolean);
-      setPath(settings, path, path === "modernize.fields"
-        ? defaults.clean_fields.filter((f) => fields.includes(f)) : fields);
+      const known = LINK_LISTS[path]();
+      setPath(settings, path, known ? known.filter((f) => fields.includes(f)) : fields);
     } else {
       setPath(settings, path, text);
     }
   }
-  return validSettings(settings);
+  return settings;
 }
 
-// Links from before the plain format, with the settings as base64 JSON
+function settingsFromLink(params) {
+  if (isV2Link(params)) return fromV2(readLink(params, LINK_SETTINGS_V2, V2_SETTINGS));
+  return validSettings(readLink(params, LINK_SETTINGS, DEFAULT_SETTINGS));
+}
+
+// Links from before the plain format, with the settings of version 2 as
+// base64 JSON
 function decodeOldSettings(text) {
   const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
   const json = new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
-  return validSettings(merge(DEFAULT_SETTINGS, JSON.parse(json)));
+  return fromV2(JSON.parse(json));
 }
 
 $("#share").addEventListener("click", async () => {
@@ -1546,7 +1703,7 @@ $("#share").addEventListener("click", async () => {
 function loadSharedSettings() {
   const params = new URLSearchParams(location.hash.slice(1));
   const old = params.get("settings");
-  if (!old && !Object.keys(LINK_SETTINGS).some((name) => params.has(name))) return;
+  if (!old && ![...Object.keys(LINK_SETTINGS), ...Object.keys(LINK_SETTINGS_V2)].some((name) => params.has(name))) return;
   try {
     state.settings = old ? decodeOldSettings(old) : settingsFromLink(params);
     saveSettings();
