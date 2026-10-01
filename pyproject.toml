@@ -40,7 +40,7 @@ Changelog = 'https://github.com/klb2/bibtex-tools/blob/master/CHANGELOG.md'
 bibtex-tools = "bibtextools.__main__:main"
 
 [tool.setuptools]
-packages = ["bibtextools"]
+packages = ["bibtextools", "bibtextools.core"]
 
 [tool.setuptools.dynamic]
 version = {attr = "bibtextools.__version__"}

@@ -134,10 +134,11 @@ def test_every_cited_key_stays(bbl, duplicates):
         # and no entry has a key that is not needed
         assert set(_out.entry[KEY_ID] for _out in result.entries) <= present | {"Conf2021"}
 
-def test_generate_ids_is_skipped_while_filtering():
-    result = _run(ONE_BBL, pipeline.DUPLICATES_REMOVE_SHORTER, replace_ids=True)
+def test_generate_keys_is_skipped_while_filtering():
+    result = _run(ONE_BBL, pipeline.DUPLICATES_REMOVE_SHORTER,
+                  generate_keys=True)
     assert set(_by_id(result)) == EXPECTED_ONE
-    assert any("Generate IDs is skipped" in _msg
+    assert any("Generate keys is skipped" in _msg
                for _level, _msg in result.messages)
 
 

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from bibtextools import web
 from bibtextools.const import DEFAULT_REMOVE
 
@@ -51,8 +53,14 @@ def test_run_filter_and_abbreviations():
     assert response["entries"][0]["changed"] == ["journal"]
 
 def test_run_undefined_abbreviation():
+    """An undefined abbreviation is kept as text with a warning, instead of
+    failing the whole run."""
     response = _run({"sources": [_source("dirty.bib")], "options": {}})
-    assert "my_abbr" in response["error"]
+    assert "error" not in response
+    assert "my_abbr" in response["undefined_strings"]
+    assert any(_level == "warning" and "my_abbr" in _msg
+               for _level, _msg in response["messages"])
+    assert len(response["entries"]) == len(response["sources"][0]["entries"])
 
 def test_run_choose_duplicates():
     request = {"sources": [_source("duplicate_content.bib")],
@@ -66,6 +74,19 @@ def test_run_choose_duplicates():
     response = _run(request)
     assert list(response["removed"]) == [pairs[0][1]]
     assert response["unresolved_pairs"] == []
+    assert response["decided_pairs"] == pairs
+
+@pytest.mark.parametrize("titles,expected", [
+    (None, "On the IEEE Standard"),
+    ("keep", "On the IEEE Standard"),
+    ("acronyms", "On the {IEEE} Standard"),
+    ("whole", "{On the IEEE Standard}"),
+])
+def test_run_titles(titles, expected):
+    options = {} if titles is None else {"titles": titles}
+    response = _run_text("@misc{Key, title = {On the IEEE Standard}}\n",
+                         options)
+    assert "title = {" + expected + "}" in response["text"]
 
 def test_run_arxiv_categories():
     request = {"sources": [_source("old.bib")],

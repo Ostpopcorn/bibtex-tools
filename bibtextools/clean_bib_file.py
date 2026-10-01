@@ -1,17 +1,22 @@
+"""The `clean` command, which expands abbreviations, removes fields, and
+replaces unicode characters. The steps are in `core`."""
 import logging
 import copy
 import functools
-import re
-import itertools
-from difflib import SequenceMatcher
 from pprint import pprint
 
 from bibtexparser.bibdatabase import BibDatabase
-from bibtexparser.latexenc import unicode_to_latex_map
 
-from .const import (KEY_ID, KEY_TITLE, KEY_AUTHOR, KEY_EDITOR, KEY_ENTRYTYPE,
-                    KEYS_JOURNAL, KEY_BOOKTITLE, KEY_YEAR, KEY_DATE, KEY_PAGES,
-                    KEY_DOI, KEY_EPRINT, KEY_ISBN, KEY_IDS, KEY_URL)
+from .const import KEY_ID
+# The steps moved to `core`, and their names are kept here for older code
+from .core.duplicates import (IDENTIFIERS, MAX_DUPLICATES,
+                              get_duplicate_index_pairs,
+                              get_duplicate_index_pairs_of,
+                              remove_shorter_duplicate)
+from .core.fields import remove_fields as _remove_fields
+from .core.keys import get_duplicate_keys, rename_duplicate_keys
+from .core.latex import (UNICODE_SKIP_FIELDS, replace_unicode_in_entry,
+                         unicode_to_latex)
 from .util import load_bib_file, write_bib_database, getnames
 
 def repeat(num_times):
@@ -47,190 +52,22 @@ def cleaning_function(on_all_entries=False):
 def has_duplicates(bib_database):
     return len(bib_database.get_entry_dict()) != len(bib_database.get_entry_list())
 
-# https://stackoverflow.com/a/9836685
 @cleaning_function(on_all_entries=True)
 def get_duplicate_ids(entries):
-    list_ids = [x[KEY_ID] for x in entries]
-    return set([x for x in list_ids if list_ids.count(x) > 1])
+    return get_duplicate_keys(entries)
 
 @cleaning_function(on_all_entries=True)
 def replace_duplicate_ids(entries, return_dupl=False):
-    duplicates = {k: 0 for k in get_duplicate_ids(entries)}
-    used_ids = set([x[KEY_ID] for x in entries])
-    for entry in entries:
-        _id = entry[KEY_ID]
-        if _id in duplicates:
-            duplicates[_id] += 1
-            # The first entry keeps its ID, since BibTeX and biber also use
-            # the first entry for a duplicate ID.
-            if duplicates[_id] == 1:
-                continue
-            _letter = ord('`') + duplicates[_id]
-            while "{}:{}".format(_id, chr(_letter)) in used_ids:
-                _letter += 1
-            _id = "{}:{}".format(_id, chr(_letter))
-            used_ids.add(_id)
-            entry[KEY_ID] = _id
+    entries, duplicates = rename_duplicate_keys(entries)
     if return_dupl:
         return entries, duplicates
     else:
         return entries
 
-def _normalize_doi(doi):
-    doi = doi.strip().lower().replace("\\", "")
-    return re.sub(r'^(https?://(dx\.)?doi\.org/|doi:)', '', doi)
-
-def _normalize_eprint(eprint):
-    eprint = re.sub(r'^arxiv:', '', eprint.strip().lower())
-    return re.sub(r'v\d+$', '', eprint)
-
-def _normalize_isbn(isbn):
-    return re.sub(r'[^0-9x]', '', isbn.lower())
-
-IDENTIFIERS = {KEY_DOI: _normalize_doi,
-               KEY_EPRINT: _normalize_eprint,
-               KEY_ISBN: _normalize_isbn}
-
-def _have_different_identifiers(entry1, entry2):
-    """Entries with different DOIs, arXiv IDs, or ISBNs are different works,
-    no matter how similar their titles and authors are."""
-    for _key, _normalize in IDENTIFIERS.items():
-        if _key in entry1 and _key in entry2:
-            if _normalize(entry1[_key]) != _normalize(entry2[_key]):
-                return True
-    return False
-
-def _get_year(entry):
-    return entry.get(KEY_YEAR, entry.get(KEY_DATE, "")[:4])
-
-def _index_pairs(count, among=None):
-    """The index pairs `(i, j)` with `i < j` of `count` entries, only the
-    pairs with an index in `among` if it is given."""
-    if among is None:
-        return itertools.combinations(range(count), 2)
-    among = set(among)
-    return sorted(set((min(_idx1, _idx2), max(_idx1, _idx2))
-                      for _idx1 in among for _idx2 in range(count)
-                      if _idx2 != _idx1))
-
-def get_duplicate_index_pairs(entries, among=None):
-    """Return the index pairs `(i, j)` with `i < j` of all entries that are
-    duplicates, i.e., the same work stored more than once. Whether two
-    entries are duplicates does not depend on the other entries. With
-    `among`, e.g., the indices of the cited entries, only the pairs with one
-    of these entries are searched, which is much faster."""
-    seq_matcher_title = SequenceMatcher()
-    seq_matcher_authors = SequenceMatcher()
-    duplicates = []
-    for _idx1, _idx2 in _index_pairs(len(entries), among):
-        _entry1, _entry2 = entries[_idx1], entries[_idx2]
-        if _entry1[KEY_ENTRYTYPE] != _entry2[KEY_ENTRYTYPE]:
-            continue
-        _names1 = _entry1.get(KEY_AUTHOR, _entry1.get(KEY_EDITOR))
-        _names2 = _entry2.get(KEY_AUTHOR, _entry2.get(KEY_EDITOR))
-        if not (_entry1.get(KEY_TITLE) and _entry2.get(KEY_TITLE)
-                and _names1 and _names2):
-            continue
-        if _have_different_identifiers(_entry1, _entry2):
-            continue
-        seq_matcher_title.set_seqs(_entry2[KEY_TITLE], _entry1[KEY_TITLE])
-        # The quick ratios are upper bounds of the ratio, which is slow
-        if (seq_matcher_title.real_quick_ratio() < .8
-                or seq_matcher_title.quick_ratio() < .8):
-            continue
-        _title_ratio = seq_matcher_title.ratio()
-        if _title_ratio < .8:
-            continue
-        #print('---')
-        #print(f"T1: {_entry1[KEY_TITLE]}\nT2: {_entry2[KEY_TITLE]}")
-        #print(f"Ratio: {_title_ratio}")
-        _authors1 = getnames([i.strip() for i in _names1.replace('\n', ' ').split(" and ")])
-        _authors1 = " and ".join(_authors1)
-        _authors2 = getnames([i.strip() for i in _names2.replace('\n', ' ').split(" and ")])
-        _authors2 = " and ".join(_authors2)
-        seq_matcher_authors.set_seqs(_authors2, _authors1)
-        _author_ratio = seq_matcher_authors.ratio()
-        if _author_ratio < .9:
-            continue
-        _same_misc = True
-        if _entry1[KEY_ENTRYTYPE] == "inproceedings":
-            _same_misc = _same_misc and (_get_year(_entry1) == _get_year(_entry2))
-            _same_misc = _same_misc and (SequenceMatcher(None, _entry1.get(KEY_BOOKTITLE, ""), _entry2.get(KEY_BOOKTITLE, "")).ratio() > .7)
-        elif _entry1[KEY_ENTRYTYPE] == "article":
-            for _key in KEYS_JOURNAL:
-                _journal1 = _entry1.get(_key, "")
-                if _journal1: break
-            for _key in KEYS_JOURNAL:
-                _journal2 = _entry2.get(_key, "")
-                if _journal2: break
-            _same_misc = SequenceMatcher(None, _journal1, _journal2).ratio() > .7
-            if KEY_PAGES in _entry1 and KEY_PAGES in _entry2:
-                _same_misc = _same_misc and (SequenceMatcher(None, _entry1[KEY_PAGES], _entry2[KEY_PAGES]).ratio() >= .75)
-        else:
-            # e.g., two editions of a book or two versions of a software
-            _same_misc = _get_year(_entry1) == _get_year(_entry2)
-        if not _same_misc:
-            continue
-        duplicates.append((_idx1, _idx2))
-    return duplicates
-
-#: Groups of duplicates, i.e., copies of the same work, with more entries are
-#: not searched further, since their pairs grow quickly
-MAX_DUPLICATES = 5
-
-def get_duplicate_index_pairs_of(entries, among, max_duplicates=MAX_DUPLICATES):
-    """Return the index pairs of the duplicates of the entries with the
-    indices `among`, e.g., the cited ones, and of their duplicates in turn,
-    so that all copies of the same work are compared with each other.
-    Groups of copies with more than `max_duplicates` entries are not searched
-    further, and a warning lists them. Returns the sorted pairs and the
-    warnings as `(logging level, message)`."""
-    parent = {}
-    def root(idx):
-        while parent.setdefault(idx, idx) != idx:
-            idx = parent[idx]
-        return idx
-
-    pairs = set()
-    searched = set()
-    search = set(among)
-    while search:
-        searched |= search
-        found = get_duplicate_index_pairs(entries, among=search)
-        pairs.update(found)
-        for _idx1, _idx2 in found:
-            parent[root(_idx1)] = root(_idx2)
-        sizes = {}
-        for _idx in parent:
-            sizes[root(_idx)] = sizes.get(root(_idx), 0) + 1
-        search = set(_idx for _pair in found for _idx in _pair
-                     if _idx not in searched
-                     and sizes[root(_idx)] <= max_duplicates)
-
-    groups = {}
-    for _idx in parent:
-        groups.setdefault(root(_idx), []).append(_idx)
-    too_large = [sorted(_group) for _group in groups.values()
-                 if len(_group) > max_duplicates]
-    warnings = [(logging.WARNING,
-                 "{} entries seem to be the same work: {}. Since that is more "
-                 "than {}, not all of their pairs are compared. Remove some "
-                 "copies from the bib files to compare all of them.".format(
-                     len(_group), ", ".join(entries[_idx][KEY_ID]
-                                            for _idx in _group),
-                     max_duplicates))
-                for _group in sorted(too_large)]
-    return sorted(pairs), warnings
-
 @cleaning_function(on_all_entries=True)
 def get_duplicate_entries(entries):
     return [(entries[_idx1], entries[_idx2])
             for _idx1, _idx2 in get_duplicate_index_pairs(entries)]
-
-def remove_shorter_duplicate(entry1, entry2):
-    """Resolver for `remove_duplicate_entries` that removes the entry with
-    less fields."""
-    return sorted((entry1, entry2), key=len)[0]
 
 def ask_which_duplicate_to_remove(entry1, entry2):
     """Resolver for `remove_duplicate_entries` that asks on the command line
@@ -295,37 +132,9 @@ def remove_duplicate_entries(entries, interactive=False, verbose=logging.WARN,
 def remove_fields_from_entry(entry, remove_fields=None):
     if remove_fields is None:
         return entry
-    for _field in remove_fields:
-        entry.pop(_field, None)
-    return entry
+    return _remove_fields(entry, remove_fields)
 
 remove_fields_from_database = cleaning_function()(remove_fields_from_entry)
-
-#: Fields that are keys or are read verbatim, where LaTeX would break them
-UNICODE_SKIP_FIELDS = (KEY_ID, KEY_ENTRYTYPE, KEY_IDS, KEY_URL, KEY_DOI,
-                       KEY_EPRINT, "file", "pdf", "urlraw")
-
-_RE_MATH = re.compile(r"(\$[^$]*\$)")
-_RE_BARE_SPECIAL = re.compile(r"(?<!\\)([&%#])")
-
-def unicode_to_latex(text):
-    """Convert the non-ASCII characters of a text to LaTeX, e.g., `é` to
-    `{\\'e}`, and escape a bare `&`, `%`, or `#` outside of math. Existing
-    LaTeX and braces, e.g., `{IEEE}` or `{\\"o}`, are kept."""
-    parts = _RE_MATH.split(text)
-    for _idx, _part in enumerate(parts):
-        _part = "".join(unicode_to_latex_map.get(c, c) if ord(c) > 127 else c
-                        for c in _part)
-        if _idx % 2 == 0:
-            _part = _RE_BARE_SPECIAL.sub(r"\\\1", _part)
-        parts[_idx] = _part
-    return "".join(parts)
-
-def replace_unicode_in_entry(entry):
-    for _field in entry:
-        if _field not in UNICODE_SKIP_FIELDS:
-            entry[_field] = unicode_to_latex(entry[_field])
-    return entry
 
 replace_unicode_in_database = cleaning_function()(replace_unicode_in_entry)
 
