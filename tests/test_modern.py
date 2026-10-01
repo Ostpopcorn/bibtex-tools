@@ -112,10 +112,10 @@ def test_title_shielding_acronyms(title, expected):
     assert cleaned == expected
 
 @pytest.mark.parametrize("title,expected",
-                         [("MIMO", r"{{MIMO}}"), ("M2M", r"{{M2M}}"),
+                         [("MIMO", r"{MIMO}"), ("M2M", r"{M2M}"),
                           (r"{MIMO}", r"{MIMO}"), (r"{M2M}", r"{M2M}"),
-                          (r"Acro IN mmWave Title", r"{Acro {IN} {mmWave} Title}"),
-                          (r"Math $\mu=\alpha$", r"{Math {$\mu=\alpha$}}"),
+                          (r"Acro IN mmWave Title", r"{Acro IN mmWave Title}"),
+                          (r"Math $\mu=\alpha$", r"{Math $\mu=\alpha$}"),
                           (r"Already {ACRO} in", r"{Already {ACRO} in}"),
                           (r"{Surrounding {ACRO}}", r"{Surrounding {ACRO}}"),
                           (r"{All in curly}", r"{All in curly}"),

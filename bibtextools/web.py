@@ -7,11 +7,11 @@ import json
 import re
 from collections import defaultdict
 
-from bibtexparser.bibdatabase import UndefinedString
-
 from .const import DEFAULT_REMOVE, KEY_CATEGORY, KEY_EPRINT, KEY_ID
-from .filter_bib_file import parse_bbl_keys
-from .modernize_bib_file import CLEAN_FUNC, convert_arxiv_style
+from .core.arxiv import convert_arxiv_style
+from .core.cited import parse_bbl_keys
+from .core.fields import FIELD_CLEANERS
+from .core.titles import TITLE_KEEP
 from .pipeline import DUPLICATES_KEEP, Pipeline, PipelineOptions
 from .util import (format_bib_entries, get_entry_spans, get_field_spans,
                    parse_abbr_string)
@@ -23,7 +23,7 @@ _ABBR_CACHE = {}
 def defaults():
     """Return the default settings of the web app."""
     return json.dumps({"remove_fields": DEFAULT_REMOVE,
-                       "clean_fields": list(CLEAN_FUNC)})
+                       "clean_fields": list(FIELD_CLEANERS)})
 
 
 def _origin_str(origin):
@@ -123,13 +123,7 @@ def _output_entry(out, original, located):
 
 def run(request_json):
     """Run the pipeline for a request of the web app, see `web/app.js`."""
-    request = json.loads(request_json)
-    try:
-        return json.dumps(_run(request))
-    except UndefinedString as err:
-        return json.dumps({"error": "The abbreviation {} is not defined. Add "
-                                    "the abbreviation file (@string) under "
-                                    "Clean.".format(err)})
+    return json.dumps(_run(json.loads(request_json)))
 
 
 def _run(request):
@@ -153,15 +147,15 @@ def _run(request):
         duplicates=opts.get("duplicates", DUPLICATES_KEEP),
         duplicate_decisions=decisions,
         clean_fields=tuple(opts.get("clean_fields", ())),
-        shield_title=opts.get("shield_title", False),
+        titles=opts.get("titles", TITLE_KEEP),
         arxiv=opts.get("arxiv", False),
         arxiv_lookup=lambda eprint: categories.get(normalize_eprint(eprint)),
         arxiv_style=opts.get("arxiv_style"),
         remove_fields=tuple(opts.get("remove_fields", ())),
-        replace_ids=opts.get("replace_ids", False),
+        generate_keys=opts.get("generate_keys", False),
         iso4=opts.get("iso4", False),
         replace_unicode=opts.get("replace_unicode", False),
-        rename_duplicate_ids=opts.get("rename_duplicate_ids", False),
+        rename_duplicate_keys=opts.get("rename_duplicate_keys", False),
         sort_by_id=opts.get("sort_by_id", True))
     result = _PIPELINE.run(sources, options)
 
@@ -200,6 +194,8 @@ def _run(request):
                              for _pair in result.duplicate_pairs]),
         "unresolved_pairs": [[_origin_str(k) for k in _pair]
                              for _pair in result.unresolved_pairs],
+        "decided_pairs": [[_origin_str(k) for k in _pair]
+                          for _pair in result.decided_pairs],
         "pair_entries": {_origin_str(k): format_bib_entries(
                              [result.originals[k]], order_entries_by=None)
                          for k in sorted(pair_origins)},
@@ -217,6 +213,9 @@ def _run(request):
         "fields": sorted(fields - {KEY_ID, "ENTRYTYPE"}),
         "eprints": sorted(eprints),
         "renamed_ids": sorted(result.renamed_ids),
+        "undefined_strings": sorted(set(
+            _name for _names in result.undefined_strings.values()
+            for _name in _names)),
         "messages": [[{10: "debug", 20: "info", 30: "warning"}.get(_level, "error"),
                       _msg] for _level, _msg in result.messages],
     }

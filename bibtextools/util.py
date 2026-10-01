@@ -1,6 +1,6 @@
 import logging
 import re
-from collections import Counter
+from collections import Counter, OrderedDict
 
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
@@ -170,12 +170,19 @@ def _read_abbr(abbr, encoding="utf-8"):
         return abbr
     return load_abbr(abbr, encoding=encoding)
 
-def parse_bib_string(bib_str, abbr=None, source="<string>",
-                     return_skipped=False):
-    """Parse the content of a bib file. The abbreviations `abbr`, e.g., from
-    `load_abbr`, are expanded in addition to the common strings, without
-    changing the strings of later calls. Entries that cannot be read are
-    listed in a warning, and returned if `return_skipped` is set."""
+class _KeepUndefined(OrderedDict):
+    """Abbreviations (`@string`), where an undefined name is kept as text
+    and listed in `undefined`, instead of failing."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.undefined = []
+
+    def __missing__(self, name):
+        if name not in self.undefined:
+            self.undefined.append(name)
+        return name
+
+def _parse(bib_str, abbr, source, keep_undefined):
     logger = logging.getLogger('load_bib_file')
     bib_str = strip_comments(bib_str)
     parser = BibTexParser(homogenize_fields=True, common_strings=True,
@@ -183,6 +190,9 @@ def parse_bib_string(bib_str, abbr=None, source="<string>",
     parser.alt_dict.pop("keywords")
     if abbr is not None:
         parser.bib_database.strings.update(abbr)
+    if keep_undefined:
+        parser.bib_database.strings = _KeepUndefined(
+            parser.bib_database.strings)
     bib_database = bibtexparser.loads(bib_str, parser=parser)
     skipped = (Counter(get_entry_ids(bib_str))
                - Counter([x[KEY_ID] for x in bib_database.entries]))
@@ -192,9 +202,27 @@ def parse_bib_string(bib_str, abbr=None, source="<string>",
                        "errors, e.g., a missing comma between fields: %s",
                        sum(skipped.values()), source,
                        ", ".join(skipped.elements()))
+    undefined = sorted(getattr(parser.bib_database.strings, "undefined", []))
+    return bib_database, list(skipped.elements()), undefined
+
+def parse_bib_string(bib_str, abbr=None, source="<string>",
+                     return_skipped=False):
+    """Parse the content of a bib file. The abbreviations `abbr`, e.g., from
+    `load_abbr`, are expanded in addition to the common strings, without
+    changing the strings of later calls. An undefined abbreviation raises
+    `bibtexparser.bibdatabase.UndefinedString`. Entries that cannot be read
+    are listed in a warning, and returned if `return_skipped` is set."""
+    bib_database, skipped, _undefined = _parse(bib_str, abbr, source, False)
     if return_skipped:
-        return bib_database, list(skipped.elements())
+        return bib_database, skipped
     return bib_database
+
+def read_bib_string(bib_str, abbr=None, source="<string>"):
+    """Parse the content of a bib file like `parse_bib_string`, but keep the
+    name of an undefined abbreviation (`@string`) as text instead of
+    failing. Returns the database, the IDs of the entries that could not be
+    read, and the sorted names of the undefined abbreviations."""
+    return _parse(bib_str, abbr, source, True)
 
 def load_bib_file(bib_file, abbr=None, encoding="utf-8"):
     abbr = _read_abbr(abbr, encoding=encoding)

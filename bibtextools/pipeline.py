@@ -1,38 +1,42 @@
-"""Run the steps of all commands on bib files at once, e.g., for the live
-preview of the GUI.
+"""Run the steps of `core` on bib files at once, e.g., for the live preview
+of the GUI.
 
 Unlike the main functions of the commands, the pipeline works on strings,
 never asks for input, and keeps track of where each entry comes from and what
-changed. The steps are run in the following order:
+changed. Each step is independent and runs only if its setting is on. The
+steps are run in the following order:
 
-1. read the sources, expanding the abbreviations (`clean`)
-2. combine the entries of all sources (`combine`)
-3. remove duplicate entries
-4. keep only cited entries (`filter-cited`): with duplicates of cited
+1. read the sources, expanding the abbreviations (`@string`)
+2. combine the entries of all sources
+3. remove duplicate entries (`core.duplicates`)
+4. keep only cited entries (`core.cited`): with duplicates of cited
    entries, the kept entry takes over the cited key of the removed one
-5. clean the fields, e.g., months and pages, write arXiv preprints in one
-   style, and add arXiv categories (`modernize`)
-6. remove fields
-7. replace the IDs (`modernize`)
-8. abbreviate journal names (`modernize`)
-9. replace unicode characters (`clean`)
-10. rename duplicate IDs
+5. on each entry, see `entry_steps`: clean the fields, e.g., months and
+   pages, protect the titles, write arXiv preprints in one style, add arXiv
+   categories, remove fields, generate keys, abbreviate journal names, and
+   replace unicode characters
+6. rename duplicate keys (`core.keys`)
 """
 import copy
+import functools
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from bibtexparser.bibdatabase import BibDatabase
 
-from .clean_bib_file import (get_duplicate_index_pairs,
-                             get_duplicate_index_pairs_of,
-                             remove_shorter_duplicate, replace_duplicate_ids,
-                             replace_unicode_in_entry)
 from .const import KEY_ENTRYTYPE, KEY_ID
-from .filter_bib_file import add_referenced_ids, resolve_cited_duplicates
-from .modernize_bib_file import modernize_entry
-from .util import format_bib_entries, parse_bib_string
+from .core.arxiv import add_arxiv_category, convert_arxiv_style, get_arxiv_category
+from .core.cited import add_referenced_ids, resolve_cited_duplicates
+from .core.duplicates import (get_duplicate_index_pairs,
+                              get_duplicate_index_pairs_of,
+                              remove_shorter_duplicate)
+from .core.fields import clean_fields, remove_fields
+from .core.journals import abbreviate_journalname
+from .core.keys import generate_key_in_entry, rename_duplicate_keys
+from .core.latex import replace_unicode_in_entry
+from .core.titles import TITLE_KEEP, protect_title_in_entry
+from .util import format_bib_entries, read_bib_string
 
 DUPLICATES_KEEP = "keep"
 DUPLICATES_REMOVE_SHORTER = "remove-shorter"
@@ -55,21 +59,57 @@ class PipelineOptions:
     #: For `DUPLICATES_CHOOSE`: pair of origins -> origin of the entry to
     #: remove, or `None` to keep both. Pairs without a decision are kept.
     duplicate_decisions: dict = field(default_factory=dict)
-    #: Fields that are cleaned with `modernize_bib_file.CLEAN_FUNC`
+    #: Fields that are cleaned with `core.fields.FIELD_CLEANERS`
     clean_fields: tuple = ()
-    shield_title: bool = False
-    arxiv: bool = False
-    #: Returns the primary category of an arXiv eprint, or None
-    arxiv_lookup: Optional[Callable] = None
-    #: How arXiv preprints are written, one of
-    #: `modernize_bib_file.ARXIV_STYLES`, or None to keep them as they are
+    #: How titles are protected, one of `core.titles.TITLE_MODES`
+    titles: str = TITLE_KEEP
+    #: How arXiv preprints are written, one of `core.arxiv.ARXIV_STYLES`, or
+    #: None to keep them as they are
     arxiv_style: Optional[str] = None
+    #: Add the categories of arXiv eprints
+    arxiv: bool = False
+    #: Returns the primary category of an arXiv eprint, or None (default:
+    #: `core.arxiv.get_arxiv_category`, which downloads it)
+    arxiv_lookup: Optional[Callable] = None
     remove_fields: tuple = ()
-    replace_ids: bool = False
+    #: Replace the keys with keys of the author, year, and title. This is
+    #: skipped while filtering by cited keys, which must stay.
+    generate_keys: bool = False
     iso4: bool = False
     replace_unicode: bool = False
-    rename_duplicate_ids: bool = False
+    rename_duplicate_keys: bool = False
     sort_by_id: bool = True
+
+
+def entry_steps(options, generate_keys=None):
+    """The steps on each entry for the options, in their order, as functions
+    that take an entry and return it."""
+    if generate_keys is None:
+        generate_keys = options.generate_keys
+    steps = []
+    if options.clean_fields:
+        steps.append(functools.partial(clean_fields,
+                                       fields=options.clean_fields))
+    if options.titles != TITLE_KEEP:
+        steps.append(functools.partial(protect_title_in_entry,
+                                       mode=options.titles))
+    if options.arxiv_style is not None:
+        steps.append(functools.partial(convert_arxiv_style,
+                                       style=options.arxiv_style))
+    if options.arxiv:
+        steps.append(functools.partial(
+            add_arxiv_category,
+            lookup=options.arxiv_lookup or get_arxiv_category))
+    if options.remove_fields:
+        steps.append(functools.partial(remove_fields,
+                                       fields=options.remove_fields))
+    if generate_keys:
+        steps.append(generate_key_in_entry)
+    if options.iso4:
+        steps.append(abbreviate_journalname)
+    if options.replace_unicode:
+        steps.append(replace_unicode_in_entry)
+    return steps
 
 
 @dataclass
@@ -119,6 +159,13 @@ class PipelineResult:
     #: Pairs of duplicate entries that are both kept, since both keys are
     #: cited and the .bbl file is not from biblatex, which has aliases
     both_cited: list = field(default_factory=list)
+    #: Pairs of duplicate entries with a decision. Pairs whose other entry
+    #: was already removed no longer matter and are in neither this list nor
+    #: `unresolved_pairs`.
+    decided_pairs: list = field(default_factory=list)
+    #: index of the source -> undefined abbreviations (`@string`), which are
+    #: kept as text
+    undefined_strings: dict = field(default_factory=dict)
 
 
 def _count(number, word, words):
@@ -145,20 +192,24 @@ class Pipeline:
 
     def load(self, sources, abbr=None):
         """Read the sources, a list of `(name, text)` of bib files. Returns
-        the entries, their origins, and the IDs of unreadable entries."""
+        the entries, their origins, the IDs of unreadable entries, and the
+        undefined abbreviations (`@string`), both by the index of the
+        source."""
         key = (tuple(sources), abbr)
         if self._loaded is None or self._loaded_key != key:
-            entries, origins, unreadable = [], [], {}
+            entries, origins, unreadable, undefined = [], [], {}, {}
             for _src_idx, (_name, _text) in enumerate(sources):
-                bib_database, skipped = parse_bib_string(
-                    _text, abbr=abbr, source=_name, return_skipped=True)
+                bib_database, skipped, _undefined = read_bib_string(
+                    _text, abbr=abbr, source=_name)
                 if skipped:
                     unreadable[_src_idx] = skipped
+                if _undefined:
+                    undefined[_src_idx] = _undefined
                 for _idx, _entry in enumerate(bib_database.entries):
                     entries.append(_entry)
                     origins.append((_src_idx, _idx))
             self._loaded_key = (tuple(sources), copy.copy(abbr))
-            self._loaded = (entries, origins, unreadable)
+            self._loaded = (entries, origins, unreadable, undefined)
         return self._loaded
 
     def find_duplicates(self, entries, origins, among=None):
@@ -181,7 +232,8 @@ class Pipeline:
     def run(self, sources, options):
         """Run all steps on the sources, a list of `(name, text)` of bib
         files, and return a `PipelineResult`."""
-        loaded, origins, unreadable = self.load(sources, options.abbr)
+        loaded, origins, unreadable, undefined = self.load(sources,
+                                                           options.abbr)
         originals = dict(zip(origins, loaded))
         entries = copy.deepcopy(loaded)
         messages = []
@@ -191,11 +243,20 @@ class Pipeline:
                              "errors): {}".format(
                                  _count(len(_ids), "entry", "entries"),
                                  sources[_src_idx][0], ", ".join(_ids))))
+        for _src_idx, _names in undefined.items():
+            messages.append((logging.WARNING,
+                             "{} not defined in {}, so the names are kept as "
+                             "text: {}. Add the file with their @string "
+                             "definitions.".format(
+                                 _count(len(_names), "abbreviation is",
+                                        "abbreviations are"),
+                                 sources[_src_idx][0], ", ".join(_names))))
 
         removed = {}
         missing = set()
         pairs = None
         unresolved = []
+        decided = []
         aliases = {}
         cited_origins = set()
         both_cited = []
@@ -207,6 +268,7 @@ class Pipeline:
                 shorter = remove_shorter_duplicate(entries[idx1], entries[idx2])
                 return idx1 if shorter is entries[idx1] else idx2
             if pair in options.duplicate_decisions:
+                decided.append(pair)
                 remove = options.duplicate_decisions[pair]
                 if remove is None:
                     return None
@@ -276,33 +338,26 @@ class Pipeline:
                                  _count(len(unresolved), "pair", "pairs"))))
 
         # The keys must stay the cited ones
-        replace_ids = options.replace_ids and options.cited_keys is None
-        if options.replace_ids and not replace_ids:
+        generate_keys = options.generate_keys and options.cited_keys is None
+        if options.generate_keys and not generate_keys:
             messages.append((logging.INFO,
-                             "Generate IDs is skipped while filtering by a "
+                             "Generate keys is skipped while filtering by a "
                              ".bbl file, since the keys must stay the cited "
                              "ones"))
 
+        steps = entry_steps(options, generate_keys=generate_keys)
         for _idx, _entry in enumerate(entries):
-            _entry = modernize_entry(_entry,
-                                     remove_fields=options.remove_fields,
-                                     replace_ids=replace_ids,
-                                     arxiv=options.arxiv, iso4=options.iso4,
-                                     clean_fields=options.clean_fields,
-                                     arxiv_lookup=options.arxiv_lookup,
-                                     arxiv_style=options.arxiv_style,
-                                     shield_title=options.shield_title)
-            if options.replace_unicode:
-                _entry = replace_unicode_in_entry(_entry)
+            for _step in steps:
+                _entry = _step(_entry)
             entries[_idx] = _entry
 
         renamed = {}
-        if options.rename_duplicate_ids:
-            entries, renamed = replace_duplicate_ids(entries, return_dupl=True)
+        if options.rename_duplicate_keys:
+            entries, renamed = rename_duplicate_keys(entries)
             if renamed:
                 messages.append((logging.INFO,
-                                 "Renamed entries with duplicate IDs (the "
-                                 "first entry keeps its ID): {}".format(
+                                 "Renamed entries with duplicate keys (the "
+                                 "first entry keeps its key): {}".format(
                                      ", ".join(renamed))))
 
         order = list(range(len(entries)))
@@ -331,7 +386,8 @@ class Pipeline:
                               missing_keys=missing, unreadable=unreadable,
                               renamed_ids=renamed, messages=messages,
                               cited_origins=cited_origins,
-                              both_cited=both_cited)
+                              both_cited=both_cited, decided_pairs=decided,
+                              undefined_strings=undefined)
 
 
 def _drop(entries, origins, removed):
