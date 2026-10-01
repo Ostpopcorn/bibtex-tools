@@ -40,12 +40,36 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   it in its `ids` field if both keys are cited (biblatex). With BibTeX, both
   entries are kept then. Of different entries with the same key, the first
   one is kept. In Python, use `filter_bib_file.resolve_cited_duplicates`.
+- Add the `core` package with the steps of all commands as independent
+  functions, one module per topic: `fields`, `titles`, `arxiv`, `journals`,
+  `latex`, `keys`, `duplicates`, and `cited`. Each function takes only its own
+  settings. The command modules use them and keep their names.
+- Add `core.titles.protect_title` with three ways to protect titles: keep
+  them (`keep`), braces around acronyms (`acronyms`), or braces around the
+  whole title (`whole`).
+- Add `util.read_bib_string`, which keeps an undefined abbreviation
+  (`@string`) as text instead of failing, and lists it.
 - Add an `among` argument to `get_duplicate_index_pairs`, which only searches
   the pairs with one of the given entries, e.g., the cited ones, and
   `get_duplicate_index_pairs_of`, which also searches the duplicates of
   their duplicates, up to groups of `MAX_DUPLICATES` (5) copies.
 
 ### Changed
+- Web app: the settings are in a sidebar on the left, which can be hidden to
+  a bar. Every setting works on its own, instead of in groups that were
+  switched on and off, e.g., ISO 4 journal names without the other steps of
+  `modernize`. Titles have one setting: Keep, Acronyms, or Whole title. The
+  review of duplicate entries shows how many pairs are decided. Saved
+  settings and shared links of the earlier version still work.
+- In the pipeline, the settings `shield_title`, `replace_ids`, and
+  `rename_duplicate_ids` are now `titles`, `generate_keys`, and
+  `rename_duplicate_keys`. Each step runs on its own, see
+  `pipeline.entry_steps`.
+- Protecting whole titles (`modernize --shield_title`) puts one pair of braces
+  around the title, e.g., `{A Mathematical Theory}` instead of
+  `{{A} Mathematical Theory}`.
+- Generated keys use the last name of the first author also if the names are
+  written as "First Last".
 - Move `DEFAULT_REMOVE` from the command line modules to `const`.
 - Finding duplicate entries is several times faster for large bib files. The
   duplicates are found only once instead of after every removed entry, and
@@ -65,6 +89,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- Web app: an undefined abbreviation (`@string`) no longer stops the preview.
+  Its name is kept as text and listed in a warning.
 - Replacing unicode characters (`clean`, `replace_unicode_in_entry`) converts
   only the non-ASCII characters, e.g., `é` to `{\'e}`, and a bare `&`, `%`,
   or `#` outside of math. Before, it removed all braces, e.g., of shielded
