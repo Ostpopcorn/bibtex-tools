@@ -29,13 +29,6 @@ const ARXIV_STYLE_HINTS = {
   eprint: "<code>@misc</code> with <code>eprint = {2009.09852}</code>, like arXiv. Published papers are not changed.",
   journal: "<code>@article</code> with <code>journal = {arXiv preprint arXiv:2009.09852}</code>, like Google Scholar. Published papers are not changed.",
 };
-// How the style of arXiv preprints changes the other settings of arXiv
-const ARXIV_STYLE_NOTES = {
-  keep: "",
-  eprint: "Preprints get the bare ID in eprint, so “Remove arXiv:” only changes published papers.",
-  journal: "Preprints keep only their ID in the journal field, without eprint and category. " +
-    "The settings below only change published papers with an eprint.",
-};
 // Converting the fields, which follows the output
 const CONVERT = {
   biblatex: {
@@ -422,8 +415,6 @@ function applySettingsToUI() {
   const hint = $("#arxiv-style-hint");
   hint.innerHTML = ARXIV_STYLE_HINTS[s.arxiv.style];
   hint.hidden = !hint.innerHTML;
-  $("#arxiv-style-note-text").textContent = ARXIV_STYLE_NOTES[s.arxiv.style];
-  $("#arxiv-style-note").hidden = !ARXIV_STYLE_NOTES[s.arxiv.style];
   $("#titles-hint").innerHTML = TITLE_HINTS[s.fields.titles];
   // New keys would break the citations of the .bbl file
   const filtering = s.cited.enabled && Boolean(state.bbl);
