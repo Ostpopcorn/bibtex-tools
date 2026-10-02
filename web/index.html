@@ -135,16 +135,34 @@
 
         <section class="sec" aria-labelledby="sec-fields">
           <div class="sec-head"><h3 id="sec-fields">Fields</h3></div>
-          <div class="lead">
+          <div class="opt lead">
             <label class="check"><input type="checkbox" data-setting="fields.convert"><span id="convert-label">Convert to biblatex fields</span></label>
             <p class="hint" id="convert-hint"></p>
           </div>
-          <label class="check"><input type="checkbox" data-field="pages"><span>Pages</span><span class="ex">17-61 → 17--61</span></label>
-          <label class="check"><input type="checkbox" data-field="month"><span>Months</span><span class="ex">jul → 7</span></label>
-          <label class="check"><input type="checkbox" data-field="author"><span>Names</span><span class="ex">Paul Erdős → Erdős, Paul</span></label>
-          <label class="check"><input type="checkbox" data-field="eprint"><span>Eprints</span><span class="ex">arXiv:2009.09852 → 2009.09852</span></label>
-          <label class="check"><input type="checkbox" data-setting="fields.iso4"><span>ISO 4 journal names</span><span class="ex">Bell Syst. Tech. J.</span></label>
-          <label class="check"><input type="checkbox" data-setting="fields.unicode"><span>Unicode → LaTeX</span><span class="ex">ä → {\"a}</span></label>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-field="pages"><span>Use en dashes in page ranges</span></label>
+            <p class="hint">E.g., <code>17-61</code> → <code>17--61</code></p>
+          </div>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-field="month"><span>Write months as numbers</span></label>
+            <p class="hint">E.g., <code>jul</code> → <code>7</code></p>
+          </div>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-field="author"><span>Write names as “Last, First”</span></label>
+            <p class="hint">E.g., <code>Paul Erdős</code> → <code>Erdős, Paul</code></p>
+          </div>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-field="eprint"><span>Remove “arXiv:” from eprints</span></label>
+            <p class="hint">E.g., <code>arXiv:2009.09852</code> → <code>2009.09852</code></p>
+          </div>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-setting="fields.iso4"><span>Abbreviate journal names (ISO 4)</span></label>
+            <p class="hint">E.g., <code>Physical Review</code> → <code>Phys. Rev.</code></p>
+          </div>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-setting="fields.unicode"><span>Convert special characters to LaTeX</span></label>
+            <p class="hint">E.g., <code>ä</code> → <code>{\"a}</code> and <code>&amp;</code> → <code>\&amp;</code></p>
+          </div>
           <div class="option-row">
             <span class="option-label" id="titles-label">Titles</span>
             <div class="segmented" role="radiogroup" aria-labelledby="titles-label">
@@ -164,13 +182,22 @@
             <label title="@article with the ID in the journal field, like Google Scholar exports them"><input type="radio" name="arxiv-style" value="journal"><span>@article, journal</span></label>
           </div>
           <p class="hint" id="arxiv-style-hint" hidden></p>
-          <label class="check" title="Looks up the eprint IDs on arxiv.org, which uses the internet"><input type="checkbox" data-setting="arxiv.lookup"><span>Look up categories <span class="muted" id="arxiv-state"></span></span><span class="online"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>online</span></label>
+          <div class="opt">
+            <label class="check" title="Looks up the eprint IDs on arxiv.org, which uses the internet"><input type="checkbox" data-setting="arxiv.lookup"><span>Look up arXiv categories <span class="muted" id="arxiv-state"></span></span><span class="online"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>online</span></label>
+            <p class="hint">E.g., adds <code>primaryClass = {cs.IT}</code></p>
+          </div>
         </section>
 
         <section class="sec" aria-labelledby="sec-keys">
           <div class="sec-head"><h3 id="sec-keys">Keys</h3></div>
-          <label class="check" title="Entries with the same key get key:b, key:c, and so on. The first entry keeps its key, like LaTeX uses it."><input type="checkbox" data-setting="keys.rename"><span>Rename duplicate keys</span><span class="ex">key, key:b</span></label>
-          <label class="check" id="generate-keys"><input type="checkbox" data-setting="keys.generate"><span>Generate keys</span><span class="ex" id="generate-keys-ex">Shannon1948mathematical</span></label>
+          <div class="opt">
+            <label class="check" title="The first entry keeps its key, like LaTeX uses it."><input type="checkbox" data-setting="keys.rename"><span>Rename duplicate keys</span></label>
+            <p class="hint">E.g., two entries <code>key</code> → <code>key</code> and <code>key:b</code></p>
+          </div>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-setting="keys.generate"><span>Generate keys from author, year, and title</span></label>
+            <p class="hint" id="generate-keys-hint">E.g., <code>Shannon1948mathematical</code></p>
+          </div>
         </section>
 
         <section class="sec" aria-labelledby="sec-remove">
