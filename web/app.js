@@ -29,6 +29,21 @@ const ARXIV_STYLE_HINTS = {
   eprint: "<code>@misc</code> with <code>eprint = {2009.09852}</code>, like arXiv. Published papers are not changed.",
   journal: "<code>@article</code> with <code>journal = {arXiv preprint arXiv:2009.09852}</code>, like Google Scholar. Published papers are not changed.",
 };
+// Converting the fields, which follows the output
+const CONVERT = {
+  biblatex: {
+    label: "Convert to biblatex fields",
+    example: "E.g., <code>journal</code> → <code>journaltitle</code>, <code>@phdthesis</code> → <code>@thesis</code>",
+    title: "Use the names of biblatex, e.g., journal → journaltitle, address → location, school → institution, " +
+      "@phdthesis → @thesis, and @techreport → @report. biber reads the BibTeX names as well.",
+  },
+  bibtex: {
+    label: "Convert to BibTeX fields",
+    example: "E.g., <code>journaltitle</code> → <code>journal</code>, <code>@online</code> → <code>@misc</code>",
+    title: "Use the names that BibTeX reads, e.g., journaltitle → journal, location → address, " +
+      "date → year and month, @online → @misc, and @thesis → @phdthesis. BibTeX ignores the biblatex names.",
+  },
+};
 const TITLE_HINTS = {
   keep: "Titles stay as they are in your files.",
   acronyms: "Braces around acronyms, e.g., <code>The {IEEE} Standard</code>, so that styles keep their case.",
@@ -48,7 +63,7 @@ const DEFAULT_SETTINGS = {
   cited: { enabled: false },   // keep only the entries cited in the .bbl file
   strings: { enabled: false }, // expand the @string abbreviations
   duplicates: { mode: "choose" },
-  fields: { clean: null, titles: "whole", iso4: false, unicode: false },
+  fields: { convert: false, clean: null, titles: "whole", iso4: false, unicode: false },
   arxiv: { style: "keep", lookup: false },
   keys: { rename: true, generate: false },
   remove: { fields: null },
@@ -169,6 +184,7 @@ function fromV2(stored) {
     strings: { enabled: old.clean.enabled },
     duplicates: { mode: old.duplicates.mode },
     fields: {
+      convert: false,
       clean: !on ? [] : modern.fields === null ? null : fields.filter((f) => f !== "title"),
       titles: !titles ? "keep" : modern.shield ? "whole" : "acronyms",
       iso4: on && modern.iso4,
@@ -330,6 +346,7 @@ function buildRequest() {
       duplicates: s.duplicates.mode,
       decisions: [...state.decisions].map(([pair, remove]) => [pair.split("|"), remove]),
       output: s.format,
+      convert_fields: s.fields.convert,
       sort_by_id: true,
     },
     arxiv_categories: state.arxiv,
@@ -389,6 +406,10 @@ function applySettingsToUI() {
   setAvailable($("input[name=arxiv-style][value=eprint]"), notForBibtex(BIBLATEX_ONLY.eprintStyle));
   setAvailable($("[data-setting='arxiv.lookup']"), notForBibtex(BIBLATEX_ONLY.lookup));
   renderFormat();
+  const convert = CONVERT[s.format];
+  $("#convert-label").textContent = convert.label;
+  $("#convert-hint").innerHTML = convert.example;
+  $("#convert-label").closest("label").title = convert.title;
   const hint = $("#arxiv-style-hint");
   hint.innerHTML = ARXIV_STYLE_HINTS[s.arxiv.style];
   hint.hidden = !hint.innerHTML;
@@ -1666,6 +1687,7 @@ document.addEventListener("keydown", (event) => {
 // in the link. Only settings that differ from the defaults are listed.
 const LINK_SETTINGS = {
   format: "format",
+  convert: "fields.convert",
   cited: "cited.enabled",
   strings: "strings.enabled",
   duplicates: "duplicates.mode",

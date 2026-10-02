@@ -223,6 +223,30 @@ def test_each_setting_alone(options, changed):
     assert (out.changed | set("-" + k for k in out.removed)
             | ({"ID"} if out.id_changed else set())) == changed
 
+BIB_THESIS = """@phdthesis{Key1,
+  author = {Claude E. Shannon},
+  title = {An Algebra for Theoretical Genetics},
+  school = {MIT},
+  year = {1940},
+}
+"""
+
+@pytest.mark.parametrize("output,entry_type,field", [
+    (None, "thesis", "institution"),
+    (pipeline.OUTPUT_BIBLATEX, "thesis", "institution"),
+    (pipeline.OUTPUT_BIBTEX, "phdthesis", "school"),
+])
+def test_convert_fields_for_output(output, entry_type, field):
+    options = pipeline.PipelineOptions(convert_fields=True, output=output)
+    entry = pipeline.run_pipeline([("a.bib", BIB_THESIS)], options).entries[0].entry
+    assert entry["ENTRYTYPE"] == entry_type and entry[field] == "MIT"
+
+def test_convert_fields_before_removing_fields():
+    options = pipeline.PipelineOptions(convert_fields=True,
+                                       remove_fields=("institution",))
+    entry = pipeline.run_pipeline([("a.bib", BIB_THESIS)], options).entries[0].entry
+    assert "institution" not in entry and "school" not in entry
+
 def test_undefined_abbreviations_are_kept():
     with open(DIRTY_BIB, encoding="utf-8") as _file:
         sources = [(DIRTY_BIB, _file.read())]

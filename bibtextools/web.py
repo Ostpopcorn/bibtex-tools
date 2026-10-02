@@ -145,6 +145,7 @@ def _run(request):
     options = PipelineOptions(
         abbr=abbr, cited_keys=cited, bbl_backend=backend,
         output=opts.get("output"),
+        convert_fields=opts.get("convert_fields", False),
         duplicates=opts.get("duplicates", DUPLICATES_KEEP),
         duplicate_decisions=decisions,
         clean_fields=tuple(opts.get("clean_fields", ())),

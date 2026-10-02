@@ -338,6 +338,9 @@ body:not(.settings-shown) .rail { display: block; }
   font: 11.5px/19px var(--code-font);
   color: var(--muted);
 }
+/* A setting above the others of its section */
+.lead { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; margin-bottom: 1px; border-bottom: 1px dashed var(--border); }
+.lead .hint { padding-left: 21px; }
 .check.off { color: var(--faint); cursor: not-allowed; }
 .check.off .ex, .check.off .online { color: var(--faint); background: none; }
 .segmented label.off { cursor: not-allowed; }

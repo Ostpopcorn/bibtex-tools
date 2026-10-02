@@ -1,6 +1,7 @@
 import pytest
 
 from bibtextools.core.fields import clean_fields, remove_fields
+from bibtextools.core.formats import to_biblatex, to_bibtex
 from bibtextools.core.keys import generate_key, rename_duplicate_keys
 from bibtextools.core.titles import (TITLE_ACRONYMS, TITLE_KEEP, TITLE_WHOLE,
                                      is_wrapped, protect_title,
@@ -85,3 +86,45 @@ def test_read_keeps_undefined_strings():
     assert entries["b"]["journal"] == "Known Journal"
     assert undefined == ["jacm", "other"]
     assert skipped == []
+
+
+@pytest.mark.parametrize("bibtex,biblatex", [
+    ({"ENTRYTYPE": "article", "journal": "J", "address": "Here"},
+     {"ENTRYTYPE": "article", "journaltitle": "J", "location": "Here"}),
+    ({"ENTRYTYPE": "phdthesis", "school": "Uni"},
+     {"ENTRYTYPE": "thesis", "type": "phdthesis", "institution": "Uni"}),
+    ({"ENTRYTYPE": "mastersthesis", "school": "Uni"},
+     {"ENTRYTYPE": "thesis", "type": "mathesis", "institution": "Uni"}),
+    ({"ENTRYTYPE": "techreport", "institution": "Lab"},
+     {"ENTRYTYPE": "report", "type": "techreport", "institution": "Lab"}),
+    ({"ENTRYTYPE": "misc", "archiveprefix": "arXiv", "primaryclass": "cs.IT"},
+     {"ENTRYTYPE": "misc", "eprinttype": "arXiv", "eprintclass": "cs.IT"}),
+])
+def test_convert_both_ways(bibtex, biblatex):
+    assert to_biblatex(dict(bibtex)) == biblatex
+    assert to_bibtex(dict(biblatex)) == bibtex
+
+def test_to_biblatex_keeps_existing_fields():
+    entry = {"ENTRYTYPE": "techreport", "type": "Memo",
+             "journal": "A", "journaltitle": "B"}
+    assert to_biblatex(entry) == {"ENTRYTYPE": "report", "type": "Memo",
+                                  "journal": "A", "journaltitle": "B"}
+
+@pytest.mark.parametrize("biblatex,bibtex", [
+    ({"ENTRYTYPE": "online", "url": "u", "date": "2020-07-15"},
+     {"ENTRYTYPE": "misc", "url": "u", "year": "2020", "month": "July"}),
+    ({"ENTRYTYPE": "article", "date": "2020"},
+     {"ENTRYTYPE": "article", "year": "2020"}),
+    # a different year keeps the date
+    ({"ENTRYTYPE": "article", "year": "2019", "date": "2020"},
+     {"ENTRYTYPE": "article", "year": "2019", "date": "2020"}),
+    # a date range is not converted
+    ({"ENTRYTYPE": "article", "date": "2020/2021"},
+     {"ENTRYTYPE": "article", "date": "2020/2021"}),
+    ({"ENTRYTYPE": "thesis", "type": "Habilitation", "institution": "Uni"},
+     {"ENTRYTYPE": "phdthesis", "type": "Habilitation", "school": "Uni"}),
+    ({"ENTRYTYPE": "collection", "editor": "E"},
+     {"ENTRYTYPE": "book", "editor": "E"}),
+])
+def test_to_bibtex(biblatex, bibtex):
+    assert to_bibtex(biblatex) == bibtex
