@@ -13,8 +13,8 @@ steps are run in the following order:
    entries, the kept entry takes over the cited key of the removed one
 5. on each entry, see `entry_steps`: clean the fields, e.g., months and
    pages, protect the titles, write arXiv preprints in one style, add arXiv
-   categories, remove fields, generate keys, abbreviate journal names, and
-   replace unicode characters
+   categories, convert the fields to biblatex or BibTeX, remove fields,
+   generate keys, abbreviate journal names, and replace unicode characters
 6. rename duplicate keys (`core.keys`)
 """
 import copy
@@ -32,6 +32,7 @@ from .core.duplicates import (get_duplicate_index_pairs,
                               get_duplicate_index_pairs_of,
                               remove_shorter_duplicate)
 from .core.fields import clean_fields, remove_fields
+from .core.formats import to_biblatex, to_bibtex
 from .core.journals import abbreviate_journalname
 from .core.keys import generate_key_in_entry, rename_duplicate_keys
 from .core.latex import replace_unicode_in_entry
@@ -79,6 +80,9 @@ class PipelineOptions:
     #: Returns the primary category of an arXiv eprint, or None (default:
     #: `core.arxiv.get_arxiv_category`, which downloads it)
     arxiv_lookup: Optional[Callable] = None
+    #: Use the fields and entry types of the output, see `output_format`
+    #: (default: biblatex) and `core.formats`
+    convert_fields: bool = False
     remove_fields: tuple = ()
     #: Replace the keys with keys of the author, year, and title. This is
     #: skipped while filtering by cited keys, which must stay.
@@ -117,6 +121,9 @@ def entry_steps(options, generate_keys=None):
         steps.append(functools.partial(
             add_arxiv_category,
             lookup=options.arxiv_lookup or get_arxiv_category))
+    if options.convert_fields:
+        steps.append(to_bibtex if options.output_format() == OUTPUT_BIBTEX
+                     else to_biblatex)
     if options.remove_fields:
         steps.append(functools.partial(remove_fields,
                                        fields=options.remove_fields))

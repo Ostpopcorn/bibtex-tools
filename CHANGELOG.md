@@ -55,6 +55,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add the `output` option to `PipelineOptions` ("biblatex" or "bibtex"),
   which decides whether the other cited keys of a duplicate go into `ids`
   (biblatex only). By default, the backend of the `.bbl` file decides.
+- Add `core.formats` with `to_biblatex` and `to_bibtex`, which convert the
+  fields and entry types, e.g., `journal` and `journaltitle`, `@phdthesis`
+  and `@thesis`, `@misc` and `@online`, and `year` and `month` from `date`.
+  In the pipeline, `convert_fields` converts to the output. In the web app,
+  it is the first setting of Fields: "Convert to biblatex fields", or
+  "Convert to BibTeX fields" in BibTeX mode.
 - Add `util.read_bib_string`, which keeps an undefined abbreviation
   (`@string`) as text instead of failing, and lists it.
 - Add an `among` argument to `get_duplicate_index_pairs`, which only searches

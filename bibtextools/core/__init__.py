@@ -11,6 +11,8 @@ only its own settings:
 - `keys`: generate keys and rename duplicate keys
 - `duplicates`: find duplicate entries
 - `cited`: keep the entries that a .bbl file cites
+- `formats`: convert between the fields and entry types of BibTeX and
+  biblatex
 
 The functions on an entry change it in place and return it, except
 `journals.abbreviate_journalname`, which returns a copy.
