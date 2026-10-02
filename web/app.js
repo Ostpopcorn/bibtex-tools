@@ -383,6 +383,7 @@ function setAvailable(input, reason) {
   label.dataset.title ??= label.title;
   input.disabled = Boolean(reason);
   label.classList.toggle("off", Boolean(reason));
+  input.closest(".opt")?.classList.toggle("off", Boolean(reason));
   label.title = reason || label.dataset.title;
 }
 
@@ -418,7 +419,9 @@ function applySettingsToUI() {
   const filtering = s.cited.enabled && Boolean(state.bbl);
   setAvailable($("[data-setting='keys.generate']"),
     filtering ? "Off while keeping only cited entries, since the keys must stay the cited ones" : "");
-  $("#generate-keys-ex").textContent = filtering ? "off while filtering" : "Shannon1948mathematical";
+  $("#generate-keys-hint").innerHTML = filtering
+    ? "Off while keeping only cited entries, since the keys must stay the cited ones."
+    : "E.g., <code>Shannon1948mathematical</code>";
   renderTags();
   renderFilesInfo();
   renderReview();
