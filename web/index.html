@@ -203,10 +203,6 @@
             <p class="hint">E.g., <code>Paul Erdős</code> → <code>Erdős, Paul</code></p>
           </div>
           <div class="opt">
-            <label class="check"><input type="checkbox" data-field="eprint"><span>Remove “arXiv:” from eprints</span></label>
-            <p class="hint">E.g., <code>arXiv:2009.09852</code> → <code>2009.09852</code></p>
-          </div>
-          <div class="opt">
             <label class="check"><input type="checkbox" data-setting="fields.iso4"><span>Abbreviate journal names (ISO 4)</span></label>
             <p class="hint">E.g., <code>Physical Review</code> → <code>Phys. Rev.</code></p>
           </div>
@@ -226,13 +222,21 @@
         </section>
 
         <section class="sec" aria-labelledby="sec-arxiv">
-          <div class="sec-head"><h3 id="sec-arxiv">arXiv preprints</h3></div>
+          <div class="sec-head"><h3 id="sec-arxiv">arXiv and eprints</h3></div>
           <div class="segmented" role="radiogroup" aria-label="Style of arXiv preprints">
             <label title="Keep arXiv preprints as they are"><input type="radio" name="arxiv-style" value="keep"><span>Keep</span></label>
             <label title="@misc with the ID in the eprint field, like arXiv exports them"><input type="radio" name="arxiv-style" value="eprint"><span>@misc, eprint</span></label>
             <label title="@article with the ID in the journal field, like Google Scholar exports them"><input type="radio" name="arxiv-style" value="journal"><span>@article, journal</span></label>
           </div>
           <p class="hint" id="arxiv-style-hint" hidden></p>
+          <p class="note" id="arxiv-style-note" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7h.01"/></svg>
+            <span id="arxiv-style-note-text"></span>
+          </p>
+          <div class="opt">
+            <label class="check"><input type="checkbox" data-field="eprint"><span>Remove “arXiv:” from eprints</span></label>
+            <p class="hint">E.g., <code>arXiv:2009.09852</code> → <code>2009.09852</code></p>
+          </div>
           <div class="opt">
             <label class="check" title="Looks up the eprint IDs on arxiv.org, which uses the internet"><input type="checkbox" data-setting="arxiv.lookup"><span>Look up arXiv categories <span class="muted" id="arxiv-state"></span></span><span class="online"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>online</span></label>
             <p class="hint">E.g., adds <code>primaryClass = {cs.IT}</code></p>

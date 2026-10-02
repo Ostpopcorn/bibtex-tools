@@ -75,6 +75,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `modernize`. Titles have one setting: Keep, Acronyms, or Whole title. The
   review of duplicate entries shows how many pairs are decided. Saved
   settings and shared links of the earlier version still work.
+- Web app: the settings of arXiv and eprints are in one section, including
+  removing "arXiv:" from eprints, with a note on how the style of preprints
+  changes the others: as `@article` with the ID in `journal`, preprints have
+  no eprint and category left, so the other settings only change published
+  papers with an eprint.
 - In the pipeline, the settings `shield_title`, `replace_ids`, and
   `rename_duplicate_ids` are now `titles`, `generate_keys`, and
   `rename_duplicate_keys`. Each step runs on its own, see

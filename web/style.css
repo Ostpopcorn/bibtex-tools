@@ -363,6 +363,9 @@ body:not(.settings-shown) .rail { display: block; }
 .check.off .online { color: var(--faint); background: none; }
 .segmented label.off { cursor: not-allowed; }
 .segmented label.off span { color: var(--faint); }
+/* How a setting changes others, e.g., the style of arXiv preprints */
+.note { display: flex; align-items: flex-start; gap: 7px; margin: 0; padding: 6px 9px; border-radius: 7px; background: var(--surface-3); color: var(--text); font-size: 12px; }
+.note svg { width: 13px; height: 13px; margin-top: 2px; color: var(--muted); }
 /* The output that the .bbl file sets */
 .format-note {
   display: flex;
