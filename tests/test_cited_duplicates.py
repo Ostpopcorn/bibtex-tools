@@ -112,6 +112,23 @@ def test_both_keys_cited_bibtex_keeps_both():
     assert any(_level == 30 and "BibTeX has no aliases" in _msg
                for _level, _msg in result.messages)
 
+@pytest.mark.parametrize("bbl,output,merged", [
+    (BOTH_BBL, None, True),
+    (BOTH_BBL, pipeline.OUTPUT_BIBTEX, False),
+    (BOTH_BIBTEX_BBL, pipeline.OUTPUT_BIBLATEX, True),
+])
+def test_output_decides_aliases(bbl, output, merged):
+    """Only biblatex resolves the other keys in ids, so the output decides,
+    or else the backend of the .bbl file."""
+    result = _run(bbl, pipeline.DUPLICATES_REMOVE_SHORTER, output=output)
+    by_id = _by_id(result)
+    assert (KEY_IDS in by_id["smith2020deep"].entry) == merged
+    assert bool(result.both_cited) != merged
+
+def test_unknown_output():
+    with pytest.raises(ValueError):
+        pipeline.PipelineOptions(output="bibtex8").output_format()
+
 def _decision_sets(bbl):
     pairs = _run(bbl, pipeline.DUPLICATES_CHOOSE).duplicate_pairs
     return [{}, {_pair: _pair[0] for _pair in pairs},

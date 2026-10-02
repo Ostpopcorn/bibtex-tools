@@ -144,6 +144,7 @@ def _run(request):
             _origin(_remove) if _remove else None)
     options = PipelineOptions(
         abbr=abbr, cited_keys=cited, bbl_backend=backend,
+        output=opts.get("output"),
         duplicates=opts.get("duplicates", DUPLICATES_KEEP),
         duplicate_decisions=decisions,
         clean_fields=tuple(opts.get("clean_fields", ())),
