@@ -333,6 +333,32 @@ body:not(.settings-shown) .rail { display: block; }
 .opt.off .hint, .opt.off .hint strong { color: var(--faint); }
 /* A setting above the others of its section */
 .opt.lead { padding-bottom: 8px; margin-bottom: 1px; border-bottom: 1px dashed var(--border); }
+/* All rules of a setting with why, e.g., of converting the fields */
+.rules { margin: 4px 0 0 21px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); font-size: 12px; }
+.rules summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  color: var(--accent);
+  font-weight: 550;
+  cursor: pointer;
+  list-style: none;
+}
+.rules summary::-webkit-details-marker { display: none; }
+.rules summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.rules .chev { width: 13px; height: 13px; transition: transform .15s; }
+.rules[open] .chev { transform: rotate(90deg); }
+.rules[open] summary { border-bottom: 1px solid var(--border); }
+.rules-body { display: flex; flex-direction: column; gap: 8px; max-height: 380px; padding: 8px 10px 10px; overflow-y: auto; }
+.rules-body p { margin: 0; }
+.rules-note { color: var(--text); }
+.rules h4 { margin: 2px 0 0; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.rules ul { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.rule-change { color: var(--text); }
+.rule-why { color: var(--muted); }
+.rules code { font-size: 11px; }
+.rules-small { color: var(--muted); font-style: italic; }
 .check.off { color: var(--faint); cursor: not-allowed; }
 .check.off .online { color: var(--faint); background: none; }
 .segmented label.off { cursor: not-allowed; }
