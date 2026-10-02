@@ -72,6 +72,19 @@
       </div>
 
       <div class="sidebar-body" id="options">
+        <section class="sec" aria-labelledby="sec-output">
+          <div class="sec-head"><h3 id="sec-output">Output for</h3></div>
+          <div class="segmented" role="radiogroup" aria-labelledby="sec-output">
+            <label title="For biblatex with biber, e.g., \usepackage{biblatex}"><input type="radio" name="format" value="biblatex"><span>biblatex</span></label>
+            <label title="For BibTeX with a .bst style, e.g., \bibliographystyle{plain}"><input type="radio" name="format" value="bibtex"><span>BibTeX</span></label>
+          </div>
+          <p class="format-note" id="format-note" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <span id="format-note-text"></span>
+          </p>
+          <p class="hint" id="format-hint"></p>
+        </section>
+
         <section class="sec" aria-labelledby="sec-latex">
           <div class="sec-head"><h3 id="sec-latex">LaTeX files</h3><span class="sum">from your document</span></div>
           <label class="check"><input type="checkbox" data-setting="cited.enabled"><span>Keep only the entries cited in a <code>.bbl</code> file</span></label>

@@ -25,7 +25,9 @@ all the work.  It was made by Ostpopcorn, and its code is in
 * Every setting works on its own and is in the settings on the left: keep
   only the entries cited in your `.bbl` file, expand `@string` abbreviations,
   duplicate entries, cleaning of fields, titles, ISO 4 journal names, unicode
-  to LaTeX, arXiv preprints, keys, and removing fields.  Hide the settings to
+  to LaTeX, arXiv preprints, keys, and removing fields.  Choose whether the
+  output is for biblatex or BibTeX: in BibTeX mode, the settings that BibTeX
+  styles cannot use are off, and a `.bbl` file sets the mode.  Hide the settings to
   a bar on the left to give the files more room.  Open, drop, or paste
   (Ctrl+V) bib files, `.bbl` files, and abbreviations.  Multiple bib files are
   combined like with `combine`.

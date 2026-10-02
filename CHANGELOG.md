@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add `core.titles.protect_title` with three ways to protect titles: keep
   them (`keep`), braces around acronyms (`acronyms`), or braces around the
   whole title (`whole`).
+- Web app: a switch at the top of the settings between output for biblatex
+  and for BibTeX. In BibTeX mode, the settings that BibTeX styles cannot use
+  are off, with the reason on hover: months as numbers, arXiv preprints as
+  `@misc` with `eprint`, and the arXiv categories. They keep their value for
+  biblatex. A loaded `.bbl` file sets the output to its backend.
+- Add the `output` option to `PipelineOptions` ("biblatex" or "bibtex"),
+  which decides whether the other cited keys of a duplicate go into `ids`
+  (biblatex only). By default, the backend of the `.bbl` file decides.
 - Add `util.read_bib_string`, which keeps an undefined abbreviation
   (`@string`) as text instead of failing, and lists it.
 - Add an `among` argument to `get_duplicate_index_pairs`, which only searches

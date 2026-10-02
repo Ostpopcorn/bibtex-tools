@@ -338,8 +338,23 @@ body:not(.settings-shown) .rail { display: block; }
   font: 11.5px/19px var(--code-font);
   color: var(--muted);
 }
-.check.off { color: var(--faint); cursor: default; }
-.check.off .ex { color: var(--faint); }
+.check.off { color: var(--faint); cursor: not-allowed; }
+.check.off .ex, .check.off .online { color: var(--faint); background: none; }
+.segmented label.off { cursor: not-allowed; }
+.segmented label.off span { color: var(--faint); }
+/* The output that the .bbl file sets */
+.format-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+.format-note svg { width: 13px; height: 13px; margin-top: 2px; color: var(--accent); }
 .online {
   flex: none;
   display: inline-flex;

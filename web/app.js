@@ -15,6 +15,15 @@ const SIDEBAR_KEY = "bibtextools.sidebar-hidden.v1";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
 const ARXIV_STYLES = ["keep", "eprint", "journal"];
 const TITLE_MODES = ["keep", "acronyms", "whole"];
+const FORMATS = ["biblatex", "bibtex"];
+const FORMAT_NAMES = { biblatex: "biblatex", bibtex: "BibTeX" };
+// Settings that BibTeX styles cannot use, with the reason shown on hover. In
+// BibTeX mode they are shown off and not applied, but keep their value.
+const BIBLATEX_ONLY = {
+  month: "BibTeX styles print the number as it is, e.g., “7 1948”, so the month name is kept.",
+  eprintStyle: "standard BibTeX styles ignore eprint and archivePrefix, so the preprint would show no arXiv ID.",
+  lookup: "standard BibTeX styles ignore primaryClass.",
+};
 const ARXIV_STYLE_HINTS = {
   keep: "",
   eprint: "<code>@misc</code> with <code>eprint = {2009.09852}</code>, like arXiv. Published papers are not changed.",
@@ -35,6 +44,7 @@ let defaults = {
 // Every setting works on its own. Lists of fields are null for the defaults
 // of bibtextools.
 const DEFAULT_SETTINGS = {
+  format: "biblatex",          // the output is for biblatex or BibTeX
   cited: { enabled: false },   // keep only the entries cited in the .bbl file
   strings: { enabled: false }, // expand the @string abbreviations
   duplicates: { mode: "choose" },
@@ -63,6 +73,7 @@ const state = {
   settings: loadSettings(),
   sources: [],          // {name, text} of the bib files
   bbl: null,            // {name, text}
+  bblBackend: null,     // "biblatex" or "bibtex" if the .bbl file is from one of them
   abbr: null,           // {name, text}
   decisions: new Map(), // "origin|origin" of a duplicate pair -> origin to remove, or null to keep both
   arxiv: loadJson(ARXIV_KEY, {}), // eprint -> primary category
@@ -141,6 +152,7 @@ function validSettings(settings) {
   if (!TITLE_MODES.includes(settings.fields.titles)) {
     settings.fields.titles = DEFAULT_SETTINGS.fields.titles;
   }
+  if (!FORMATS.includes(settings.format)) settings.format = DEFAULT_SETTINGS.format;
   return settings;
 }
 
@@ -152,6 +164,7 @@ function fromV2(stored) {
   const fields = modern.fields ?? V2_CLEAN_FIELDS;
   const titles = on && fields.includes("title");
   return validSettings({
+    format: "biblatex",
     cited: { enabled: old.filter.enabled },
     strings: { enabled: old.clean.enabled },
     duplicates: { mode: old.duplicates.mode },
@@ -216,7 +229,34 @@ function toast(text) {
 }
 
 const removeFields = () => state.settings.remove.fields ?? defaults.remove_fields;
-const cleanFields = () => state.settings.fields.clean ?? defaults.clean_fields;
+const cleanFields = (settings = state.settings) => settings.fields.clean ?? defaults.clean_fields;
+
+// The backend of a .bbl file like `parse_bbl_keys` in Python: biblatex
+// writes \entry{key}, and BibTeX \bibitem{key}. Null if it is not clear.
+function bblBackend(text) {
+  const biblatex = /\\entry\{/.test(text);
+  const bibtex = /\\bibitem(?![a-zA-Z])/.test(text);
+  return biblatex === bibtex ? null : biblatex ? "biblatex" : "bibtex";
+}
+
+// The output is for biblatex or BibTeX: as the .bbl file says, or else as
+// chosen
+const outputFormat = () => (state.bbl && state.bblBackend) || state.settings.format;
+
+// The settings that are applied: in BibTeX mode, without the settings that
+// BibTeX styles cannot use
+function effectiveSettings() {
+  const s = structuredClone(state.settings);
+  s.format = outputFormat();
+  // New keys would break the citations of the .bbl file
+  if (s.cited.enabled && state.bbl) s.keys.generate = false;
+  if (s.format === "bibtex") {
+    s.fields.clean = cleanFields().filter((f) => f !== "month");
+    if (s.arxiv.style === "eprint") s.arxiv.style = "keep";
+    s.arxiv.lookup = false;
+  }
+  return s;
+}
 
 /* Python worker */
 
@@ -272,13 +312,13 @@ function setBusy(busy) {
 }
 
 function buildRequest() {
-  const s = state.settings;
+  const s = effectiveSettings();
   return {
     sources: state.sources,
     bbl: s.cited.enabled && state.bbl ? state.bbl.text : null,
     abbr: s.strings.enabled && state.abbr ? state.abbr.text : null,
     options: {
-      clean_fields: cleanFields(),
+      clean_fields: cleanFields(s),
       titles: s.fields.titles,
       iso4: s.fields.iso4,
       replace_unicode: s.fields.unicode,
@@ -289,6 +329,7 @@ function buildRequest() {
       remove_fields: removeFields(),
       duplicates: s.duplicates.mode,
       decisions: [...state.decisions].map(([pair, remove]) => [pair.split("|"), remove]),
+      output: s.format,
       sort_by_id: true,
     },
     arxiv_categories: state.arxiv,
@@ -319,34 +360,65 @@ function showError(message) {
 
 /* Settings */
 
+// Turn a setting off with the reason on hover, or on again with its own hint
+function setAvailable(input, reason) {
+  const label = input.closest("label");
+  label.dataset.title ??= label.title;
+  input.disabled = Boolean(reason);
+  label.classList.toggle("off", Boolean(reason));
+  label.title = reason || label.dataset.title;
+}
+
 function applySettingsToUI() {
-  const s = state.settings;
+  // Settings that cannot be used show as off, but keep their value
+  const s = effectiveSettings();
+  const bibtex = s.format === "bibtex";
+  const notForBibtex = (reason) => (bibtex ? `Not available for BibTeX: ${reason}` : "");
   for (const input of $$("[data-setting]")) {
     input.checked = Boolean(getPath(s, input.dataset.setting));
   }
   for (const input of $$("[data-field]")) {
-    input.checked = cleanFields().includes(input.dataset.field);
+    input.checked = cleanFields(s).includes(input.dataset.field);
   }
-  const radios = { duplicates: s.duplicates.mode, "arxiv-style": s.arxiv.style, titles: s.fields.titles };
+  const radios = { format: s.format, duplicates: s.duplicates.mode, "arxiv-style": s.arxiv.style, titles: s.fields.titles };
   for (const [name, value] of Object.entries(radios)) {
     for (const input of $$(`input[name=${name}]`)) input.checked = input.value === value;
   }
+  // In BibTeX mode, the settings that BibTeX styles cannot use
+  setAvailable($("[data-field=month]"), notForBibtex(BIBLATEX_ONLY.month));
+  setAvailable($("input[name=arxiv-style][value=eprint]"), notForBibtex(BIBLATEX_ONLY.eprintStyle));
+  setAvailable($("[data-setting='arxiv.lookup']"), notForBibtex(BIBLATEX_ONLY.lookup));
+  renderFormat();
   const hint = $("#arxiv-style-hint");
   hint.innerHTML = ARXIV_STYLE_HINTS[s.arxiv.style];
   hint.hidden = !hint.innerHTML;
   $("#titles-hint").innerHTML = TITLE_HINTS[s.fields.titles];
   // New keys would break the citations of the .bbl file
-  const ids = $("[data-setting='keys.generate']");
-  ids.disabled = s.cited.enabled && Boolean(state.bbl);
-  const idsLabel = $("#generate-keys");
-  idsLabel.classList.toggle("off", ids.disabled);
-  idsLabel.title = ids.disabled
-    ? "Off while keeping only cited entries, since the keys must stay the cited ones"
-    : "Keys of the first author, the year, and the first word of the title";
-  $("#generate-keys-ex").textContent = ids.disabled ? "off while filtering" : "Shannon1948mathematical";
+  const filtering = s.cited.enabled && Boolean(state.bbl);
+  setAvailable($("[data-setting='keys.generate']"),
+    filtering ? "Off while keeping only cited entries, since the keys must stay the cited ones" : "");
+  $("#generate-keys-ex").textContent = filtering ? "off while filtering" : "Shannon1948mathematical";
   renderTags();
   renderFilesInfo();
   renderReview();
+}
+
+// The switch between biblatex and BibTeX, which a .bbl file sets
+function renderFormat() {
+  const locked = Boolean(state.bbl && state.bblBackend);
+  const format = outputFormat();
+  for (const input of $$("input[name=format]")) {
+    setAvailable(input, locked ? `Set by your .bbl file. Remove it to choose.` : "");
+  }
+  const note = $("#format-note");
+  note.hidden = !locked;
+  if (locked) {
+    $("#format-note-text").innerHTML = `Your <code>.bbl</code> file is from <strong>${FORMAT_NAMES[format]}</strong>, ` +
+      `so the output is for ${FORMAT_NAMES[format]}.`;
+  }
+  $("#format-hint").textContent = format === "bibtex"
+    ? "Settings that BibTeX styles cannot use are off. Hover over them to see why." : "";
+  $("#format-hint").hidden = !$("#format-hint").textContent;
 }
 
 function settingChanged() {
@@ -381,6 +453,8 @@ $("#options").addEventListener("change", (event) => {
     state.settings.arxiv.style = input.value;
   } else if (input.name === "titles") {
     state.settings.fields.titles = input.value;
+  } else if (input.name === "format") {
+    state.settings.format = input.value;
   } else {
     return;
   }
@@ -545,6 +619,7 @@ async function openFiles(files, { add = true } = {}) {
 
 function setAuxFile(kind, file) {
   state[kind] = file;
+  if (kind === "bbl") state.bblBackend = file ? bblBackend(file.text) : null;
   if (file) state.settings[kind === "bbl" ? "cited" : "strings"].enabled = true;
   saveSettings();
   applySettingsToUI();
@@ -1412,7 +1487,7 @@ function renderDuplicate() {
   const note = $("#dup-note");
   const citedIds = ids.filter((id, i) => cited.has(pair[i]));
   note.textContent = !r.cited || !citedIds.length ? ""
-    : bothKept || (citedIds.length === 2 && r.cited.backend !== "biblatex")
+    : bothKept || (citedIds.length === 2 && outputFormat() !== "biblatex")
       ? "Both keys are cited, and BibTeX has no aliases for keys, so both entries are kept. Cite one of the keys in your .tex file to remove the duplicate."
     : citedIds.length === 2
       ? "Both keys are cited. The kept entry gets the other key in its ids field, which biblatex resolves."
@@ -1452,7 +1527,7 @@ $("#review").addEventListener("click", () => openDuplicates());
 
 function missingEprints() {
   const r = state.response;
-  if (!r || !state.settings.arxiv.lookup) return [];
+  if (!r || !effectiveSettings().arxiv.lookup) return [];
   return r.eprints.filter((e) => !(e in state.arxiv) && !state.arxivTried.has(e));
 }
 
@@ -1530,7 +1605,7 @@ function renderArxivState() {
   const label = $("#arxiv-state");
   const r = state.response;
   if (state.arxivBusy) label.textContent = "(looking up…)";
-  else if (r && state.settings.arxiv.lookup && r.eprints.length) {
+  else if (r && effectiveSettings().arxiv.lookup && r.eprints.length) {
     const known = r.eprints.filter((e) => e in state.arxiv).length;
     label.textContent = `(${known}/${r.eprints.length})`;
   } else label.textContent = "";
@@ -1590,6 +1665,7 @@ document.addEventListener("keydown", (event) => {
 // Settings in shared links, e.g., #latex=on&duplicates=keep, by their name
 // in the link. Only settings that differ from the defaults are listed.
 const LINK_SETTINGS = {
+  format: "format",
   cited: "cited.enabled",
   strings: "strings.enabled",
   duplicates: "duplicates.mode",

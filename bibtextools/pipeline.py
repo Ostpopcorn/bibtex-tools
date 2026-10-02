@@ -38,6 +38,11 @@ from .core.latex import replace_unicode_in_entry
 from .core.titles import TITLE_KEEP, protect_title_in_entry
 from .util import format_bib_entries, read_bib_string
 
+#: The output is for biblatex (with biber) or for BibTeX
+OUTPUT_BIBLATEX = "biblatex"
+OUTPUT_BIBTEX = "bibtex"
+OUTPUTS = (OUTPUT_BIBLATEX, OUTPUT_BIBTEX)
+
 DUPLICATES_KEEP = "keep"
 DUPLICATES_REMOVE_SHORTER = "remove-shorter"
 DUPLICATES_CHOOSE = "choose"
@@ -53,6 +58,9 @@ class PipelineOptions:
     #: Backend of the .bbl file with the cited keys, e.g., "biblatex", which
     #: resolves other keys of an entry in its ids field
     bbl_backend: Optional[str] = None
+    #: The output is for `OUTPUT_BIBLATEX` or `OUTPUT_BIBTEX`, or None for
+    #: the backend of the .bbl file, see `output_format`
+    output: Optional[str] = None
     #: One of `DUPLICATES_KEEP`, `DUPLICATES_REMOVE_SHORTER`, and
     #: `DUPLICATES_CHOOSE`
     duplicates: str = DUPLICATES_KEEP
@@ -79,6 +87,15 @@ class PipelineOptions:
     replace_unicode: bool = False
     rename_duplicate_keys: bool = False
     sort_by_id: bool = True
+
+    def output_format(self):
+        """One of `OUTPUTS`: `output`, or else the backend of the .bbl file
+        if it is known, or else None."""
+        if self.output is not None:
+            if self.output not in OUTPUTS:
+                raise ValueError("Unknown output: {}".format(self.output))
+            return self.output
+        return self.bbl_backend if self.bbl_backend in OUTPUTS else None
 
 
 def entry_steps(options, generate_keys=None):
@@ -301,7 +318,7 @@ class Pipeline:
             # removed one, so that every cited key stays
             cited = resolve_cited_duplicates(
                 entries, options.cited_keys, index_pairs, resolve,
-                aliases=options.bbl_backend == "biblatex")
+                aliases=options.output_format() == OUTPUT_BIBLATEX)
             missing = (set(options.cited_keys)
                        - set(_entry[KEY_ID] for _entry in entries))
             if missing:
