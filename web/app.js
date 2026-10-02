@@ -410,6 +410,7 @@ function applySettingsToUI() {
   const convert = CONVERT[s.format];
   $("#convert-label").textContent = convert.label;
   $("#convert-hint").innerHTML = convert.example;
+  for (const rules of $$("[data-rules]")) rules.hidden = rules.dataset.rules !== s.format;
   $("#convert-label").closest("label").title = convert.title;
   const hint = $("#arxiv-style-hint");
   hint.innerHTML = ARXIV_STYLE_HINTS[s.arxiv.style];

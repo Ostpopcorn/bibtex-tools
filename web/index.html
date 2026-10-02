@@ -138,6 +138,57 @@
           <div class="opt lead">
             <label class="check"><input type="checkbox" data-setting="fields.convert"><span id="convert-label">Convert to biblatex fields</span></label>
             <p class="hint" id="convert-hint"></p>
+            <details class="rules">
+              <summary><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>What it changes, and why</summary>
+              <div class="rules-body" data-rules="biblatex">
+                <p class="rules-note">Uses the names of biblatex. biber reads the BibTeX names as well, so nothing is lost without this.</p>
+                <h4>Entry types</h4>
+                <ul>
+                  <li><p class="rule-change"><code>@phdthesis</code> → <code>@thesis</code> with <code>type = {phdthesis}</code>, and <code>@mastersthesis</code> → <code>@thesis</code> with <code>type = {mathesis}</code></p>
+                    <p class="rule-why">biblatex has one type for theses, and the type field says which kind. It prints the kind in the language of the document.</p></li>
+                  <li><p class="rule-change"><code>@techreport</code> → <code>@report</code> with <code>type = {techreport}</code></p>
+                    <p class="rule-why">biblatex has one type for reports, and the type field says which kind.</p></li>
+                  <li><p class="rule-change"><code>@conference</code> → <code>@inproceedings</code></p>
+                    <p class="rule-why"><code>@conference</code> is an old name for <code>@inproceedings</code>.</p></li>
+                  <li><p class="rule-change"><code>@electronic</code>, <code>@www</code> → <code>@online</code></p>
+                    <p class="rule-why">biblatex calls web pages and other online sources <code>@online</code>.</p></li>
+                </ul>
+                <h4>Fields</h4>
+                <ul>
+                  <li><p class="rule-change"><code>journal</code> → <code>journaltitle</code>, <code>address</code> → <code>location</code>, <code>school</code> → <code>institution</code>, <code>annote</code> → <code>annotation</code>, <code>archivePrefix</code> → <code>eprinttype</code>, <code>primaryClass</code> → <code>eprintclass</code></p>
+                    <p class="rule-why">These are the biblatex names. biber also reads the old names, so this only makes your file use one kind of names.</p></li>
+                </ul>
+                <p class="rules-small">A type field that is already set is kept. A field is not renamed if the entry already has the new name.</p>
+              </div>
+              <div class="rules-body" data-rules="bibtex" hidden>
+                <p class="rules-note">Uses the names that BibTeX reads. BibTeX ignores the biblatex names, so without this, their information is missing in the bibliography.</p>
+                <h4>Entry types</h4>
+                <ul>
+                  <li><p class="rule-change"><code>@thesis</code> → <code>@phdthesis</code> or <code>@mastersthesis</code></p>
+                    <p class="rule-why">BibTeX has no <code>@thesis</code>. With <code>type = {mathesis}</code>, it becomes <code>@mastersthesis</code>. Others become <code>@phdthesis</code> and keep their type field, which BibTeX styles print instead of “PhD thesis”.</p></li>
+                  <li><p class="rule-change"><code>@report</code> → <code>@techreport</code></p>
+                    <p class="rule-why">BibTeX has no <code>@report</code>. Its type field is kept, unless it is <code>techreport</code>.</p></li>
+                  <li><p class="rule-change"><code>@online</code>, <code>@electronic</code>, <code>@www</code>, <code>@dataset</code>, <code>@software</code> → <code>@misc</code></p>
+                    <p class="rule-why">BibTeX styles do not know these types, and print such entries like <code>@misc</code> anyway, with a warning.</p></li>
+                  <li><p class="rule-change"><code>@collection</code>, <code>@mvbook</code>, <code>@mvcollection</code>, <code>@reference</code> → <code>@book</code></p>
+                    <p class="rule-why">BibTeX has none of these types. <code>@book</code> can have an editor instead of an author.</p></li>
+                  <li><p class="rule-change"><code>@inreference</code> → <code>@incollection</code></p>
+                    <p class="rule-why">BibTeX has no <code>@inreference</code>, which is a part of a reference work.</p></li>
+                </ul>
+                <h4>Fields</h4>
+                <ul>
+                  <li><p class="rule-change"><code>institution</code> → <code>school</code>, in theses</p>
+                    <p class="rule-why">BibTeX styles take the university of a thesis from <code>school</code>.</p></li>
+                  <li><p class="rule-change"><code>date</code> → <code>year</code> and <code>month</code></p>
+                    <p class="rule-why">BibTeX styles have no date field, and read <code>year</code> and <code>month</code> instead. A range of dates, and a date with another year than the year field, are kept.</p></li>
+                  <li><p class="rule-change"><code>journaltitle</code> → <code>journal</code>, <code>location</code> → <code>address</code>, <code>annotation</code> → <code>annote</code></p>
+                    <p class="rule-why">BibTeX styles ignore these biblatex names, so the journal, the place, and the annotation would be missing in the bibliography.</p></li>
+                  <li><p class="rule-change"><code>eprinttype</code> → <code>archivePrefix</code>, <code>eprintclass</code> → <code>primaryClass</code></p>
+                    <p class="rule-why">BibTeX styles that show arXiv IDs read <code>archivePrefix</code> and <code>primaryClass</code>.</p></li>
+                </ul>
+                <p class="rules-small">A field is not renamed if the entry already has the new name.</p>
+              </div>
+            </details>
           </div>
           <div class="opt">
             <label class="check"><input type="checkbox" data-field="pages"><span>Use en dashes in page ranges</span></label>
