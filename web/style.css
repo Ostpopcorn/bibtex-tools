@@ -206,6 +206,14 @@ body:not(.has-files) .search { display: none; }
 .search-count.none { color: var(--rm-text); }
 .search .icon-btn { width: 24px; height: 24px; color: var(--muted); }
 .search .icon-btn svg { width: 15px; height: 15px; }
+/* While searching, only the entries that match, with a blank line between
+   them, and the files with them */
+.content.filtering > .l,
+.content.filtering > .src > .l:not(.src-head),
+.content.filtering .entry:not(.match),
+.content.filtering > .src:not(.has-match) { display: none; }
+.content.filtering .entry.match { margin-bottom: 1.6em; }
+.search-empty { margin: 0; padding: 24px 16px; color: var(--muted); font: 13px var(--ui-font); text-align: center; }
 /* Words that match the search */
 .code mark { padding: 0 1px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 26%, transparent); color: inherit; }
 
