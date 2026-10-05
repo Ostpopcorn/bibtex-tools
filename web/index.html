@@ -35,6 +35,17 @@
         </div>
       </div>
     </div>
+    <div class="search" id="search" role="search" title="Fuzzy search in both panes: finds entries with all the words, in any order, also with a typo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search-input" type="search" placeholder="Search entries" aria-label="Search the entries in both panes" autocomplete="off" spellcheck="false">
+      <span class="search-count" id="search-count" aria-live="polite"></span>
+      <button class="btn ghost tiny icon-btn" id="search-prev" aria-label="Previous match" title="Previous match (Shift+Enter)" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>
+      </button>
+      <button class="btn ghost tiny icon-btn" id="search-next" aria-label="Next match" title="Next match (Enter)" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
     <div class="actions">
       <button class="btn ghost icon-btn" id="theme" title="Switch between light and dark mode" aria-label="Switch between light and dark mode">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>

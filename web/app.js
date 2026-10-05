@@ -1094,6 +1094,10 @@ function render() {
   renderMeta();
   renderStatus();
   renderArxivState();
+  search.words = null;
+  search.marked = [];
+  if (search.tokens.length) runSearch({ keep: true });
+  else renderSearch();
   if (dialog.open) renderDuplicate();
 }
 
@@ -1450,6 +1454,192 @@ function select(origin, fromName) {
   if (el && target) setView(to, alignedView(from, to, [el, target], view(from)));
   handled(from);
 }
+
+/* Search */
+
+// Fuzzy search in both panes: an entry matches if each word of the query is
+// in it, as a part of a word or with a typo, in any order. Accents, case, and
+// LaTeX, e.g., Erd{\H o}s, are ignored.
+const search = {
+  query: "",      // the query of the matches
+  tokens: [],     // its words
+  matches: [],    // origins of the matching entries, in the order of the files
+  current: -1,    // index of the shown match
+  words: null,    // origin -> words of the entry in both panes
+  marked: [],     // lines with marked words
+};
+
+function normalizeText(text) {
+  return text.replace(/\\[a-zA-Z]+\s*|\\./g, "").replace(/[{}]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+const searchWords = (text) => normalizeText(text).match(/[\p{L}\p{N}]+/gu) || [];
+
+// The edit distance of two words, with swapped letters as one edit, or more
+// than `max` if it is larger
+function editDistance(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev2 = null;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let d = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + cost);
+      if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, prev2[j - 2] + 1);
+      row.push(d);
+      best = Math.min(best, d);
+    }
+    if (best > max) return max + 1;
+    prev2 = prev;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+// Whether a word of the query matches a word of an entry: as a part of it,
+// or with a typo in the word or its start, e.g., "comunication"
+function wordMatches(token, word) {
+  if (word.includes(token)) return true;
+  if (token.length < 4) return false;
+  const max = token.length >= 8 ? 2 : 1;
+  for (let len = token.length - max; len <= Math.min(word.length, token.length + max); len++) {
+    if (editDistance(token, word.slice(0, len), max) <= max) return true;
+  }
+  return false;
+}
+
+// The words of each entry in both panes, by its origin
+function searchIndex() {
+  if (search.words) return search.words;
+  const words = new Map();
+  for (const pane of [panes.original, panes.preview]) {
+    for (const el of pane.entries) {
+      const text = $$(".t", el).map((t) => t.textContent).join(" ");
+      const set = words.get(el.dataset.origin) || new Set();
+      for (const word of searchWords(text)) set.add(word);
+      words.set(el.dataset.origin, set);
+    }
+  }
+  search.words = words;
+  return words;
+}
+
+// Mark the words that match in the entries that match
+function markMatches() {
+  for (const el of search.marked) el.textContent = el.dataset.text;
+  search.marked = [];
+  for (const origin of search.matches) {
+    for (const pane of [panes.original, panes.preview]) {
+      const entry = pane.byOrigin.get(origin);
+      for (const t of entry ? $$(".t", entry) : []) {
+        const text = t.textContent;
+        let html = "";
+        let last = 0;
+        for (const m of text.matchAll(/[\p{L}\p{N}]+/gu)) {
+          const word = normalizeText(m[0]);
+          if (!search.tokens.some((token) => wordMatches(token, word))) continue;
+          html += escapeHtml(text.slice(last, m.index)) + `<mark>${escapeHtml(m[0])}</mark>`;
+          last = m.index + m[0].length;
+        }
+        if (!html) continue;
+        t.dataset.text = text;
+        t.innerHTML = html + escapeHtml(text.slice(last));
+        search.marked.push(t);
+      }
+    }
+  }
+}
+
+function renderSearch() {
+  const count = $("#search-count");
+  const n = search.matches.length;
+  count.textContent = !search.tokens.length ? "" : n ? `${search.current + 1} of ${n}` : "No match";
+  count.classList.toggle("none", Boolean(search.tokens.length) && !n);
+  $("#search-prev").disabled = $("#search-next").disabled = n === 0;
+}
+
+// Find the matches of the query. With `keep`, e.g., after the panes changed,
+// the current match stays without scrolling, if it still matches.
+function runSearch({ keep = false } = {}) {
+  const current = search.matches[search.current];
+  search.query = $("#search-input").value;
+  search.tokens = searchWords(search.query);
+  const words = searchIndex();
+  search.matches = !search.tokens.length ? [] : panes.original.entries.map((el) => el.dataset.origin)
+    .filter((origin) => {
+      const entryWords = [...words.get(origin)];
+      return search.tokens.every((token) => entryWords.some((word) => wordMatches(token, word)));
+    });
+  markMatches();
+  const kept = keep ? search.matches.indexOf(current) : -1;
+  search.current = kept >= 0 ? kept : search.matches.length ? 0 : -1;
+  renderSearch();
+  if (!keep && search.current >= 0) showMatch();
+}
+
+// Show the current match in both panes, at the same height, like a click on
+// it. The matches are entries of the original, which the preview follows.
+function showMatch() {
+  const origin = search.matches[search.current];
+  const from = panes.original;
+  const to = panes.preview;
+  const el = from.byOrigin.get(origin);
+  state.selected = origin;
+  state.lastPane = "original";
+  for (const pane of Object.values(panes)) {
+    pane.entries.forEach((entry) => entry.classList.toggle("selected", entry.dataset.origin === origin));
+  }
+  setView(from, Math.min(Math.max(0, contentTop(from, el) - from.el.clientHeight * 0.2), maxView(from)));
+  const target = to.byOrigin.get(origin);
+  if (target) setView(to, alignedView(from, to, [el, target], view(from)));
+  else if (state.linkScroll) align(from, to);
+  handled(from);
+  handled(to);
+  renderSearch();
+}
+
+function stepSearch(step) {
+  const n = search.matches.length;
+  if (!n) return;
+  search.current = (search.current + step + n) % n;
+  showMatch();
+}
+
+let searchTimer;
+$("#search-input").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => runSearch(), 120);
+});
+$("#search-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    clearTimeout(searchTimer);
+    // A query that was typed but not searched yet is searched first
+    if (event.target.value !== search.query) runSearch();
+    else stepSearch(event.key === "ArrowUp" || (event.key === "Enter" && event.shiftKey) ? -1 : 1);
+  } else if (event.key === "Escape") {
+    if (event.target.value) {
+      event.target.value = "";
+      runSearch();
+    } else {
+      event.target.blur();
+    }
+  }
+});
+$("#search-prev").addEventListener("click", () => stepSearch(-1));
+$("#search-next").addEventListener("click", () => stepSearch(1));
+// Ctrl+F searches the entries; pressed again in the search box, it opens the
+// search of the browser
+document.addEventListener("keydown", (event) => {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "f") return;
+  if (!state.sources.length || document.activeElement === $("#search-input") || document.querySelector("dialog[open]")) return;
+  event.preventDefault();
+  $("#search-input").focus();
+  $("#search-input").select();
+});
 
 /* Duplicates dialog */
 

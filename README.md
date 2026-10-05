@@ -36,6 +36,9 @@ all the work.  It was made by Ostpopcorn, and its code is in
 * Changed fields are highlighted on both sides, and removed fields and entries
   are marked in the original.  Click an entry to show it at the same height on
   the other side.
+* Search both sides at once (Ctrl+F): the search is fuzzy, so it finds the
+  entries with all the words in any order, also with a typo or without
+  accents, and Enter shows the next one on both sides.
 * Choose which entry of each pair of duplicate entries to remove, with the
   number of decided pairs.
 * _Share settings_ copies a link with your settings (not your files) for your
