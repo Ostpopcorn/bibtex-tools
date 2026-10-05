@@ -1,5 +1,6 @@
 import pytest
 
+from bibtextools.core.duplicates import get_duplicate_index_pairs
 from bibtextools.core.fields import clean_fields, remove_fields
 from bibtextools.core.formats import to_biblatex, to_bibtex
 from bibtextools.core.keys import generate_key, rename_duplicate_keys
@@ -128,3 +129,34 @@ def test_to_biblatex_keeps_existing_fields():
 ])
 def test_to_bibtex(biblatex, bibtex):
     assert to_bibtex(biblatex) == bibtex
+
+
+_PAPER = {"ID": "li2020federated", "ENTRYTYPE": "article",
+          "author": "Li, Tian and Sahu, Anit Kumar and Zaheer, Manzil and "
+                    "Sanjabi, Maziar and Talwalkar, Ameet and Smith, Virginia",
+          "title": "Federated optimization in heterogeneous networks",
+          "journal": "Proceedings of Machine learning and systems",
+          "pages": "429--450", "volume": "2", "year": "2020"}
+
+def _as_type(entry, entry_type, **fields):
+    entry = dict(entry, ID=entry["ID"] + "b", ENTRYTYPE=entry_type, **fields)
+    if entry_type != "article":
+        entry["booktitle"] = entry.pop("journal")
+    return entry
+
+@pytest.mark.parametrize("other,duplicate", [
+    # a conference paper, also exported as @article with the proceedings
+    (_as_type(_PAPER, "inproceedings",
+              journal="Proceedings of Machine Learning and Systems"), True),
+    (_as_type(_PAPER, "conference"), True),
+    # the journal version of a conference paper is another work
+    (_as_type(_PAPER, "inproceedings", year="2019"), False),
+    (_as_type(_PAPER, "inproceedings", pages="1--12"), False),
+    (_as_type(_PAPER, "inproceedings",
+              journal="IEEE Transactions on Communications"), False),
+    # only papers are compared across types
+    (_as_type(_PAPER, "book"), False),
+])
+def test_duplicate_papers_of_different_types(other, duplicate):
+    pairs = get_duplicate_index_pairs([_PAPER, other])
+    assert pairs == ([(0, 1)] if duplicate else [])

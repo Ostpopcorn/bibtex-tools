@@ -47,10 +47,40 @@ def _index_pairs(count, among=None):
                       for _idx1 in among for _idx2 in range(count)
                       if _idx2 != _idx1))
 
+#: Types of papers that are often stored as each other, e.g., a conference
+#: paper as @article with the proceedings as journal, like Google Scholar
+#: exports it
+_PAPER_TYPES = ("article", "inproceedings", "conference")
+
+def _venue(entry):
+    """The journal or the proceedings of a paper."""
+    for _key in (*KEYS_JOURNAL, KEY_BOOKTITLE):
+        if entry.get(_key):
+            return entry[_key]
+    return ""
+
+def _same_pages(entry1, entry2):
+    """Whether the pages are similar, or not in both entries."""
+    if KEY_PAGES not in entry1 or KEY_PAGES not in entry2:
+        return True
+    return SequenceMatcher(None, entry1[KEY_PAGES], entry2[KEY_PAGES]).ratio() >= .75
+
+def _same_paper(entry1, entry2):
+    """Whether papers of different types, e.g., @article and @inproceedings,
+    are in the same venue in the same year, e.g., "Proceedings of Machine
+    Learning and Systems" as journal and as booktitle."""
+    if _get_year(entry1) != _get_year(entry2):
+        return False
+    venue_ratio = SequenceMatcher(None, _venue(entry1).lower(),
+                                  _venue(entry2).lower()).ratio()
+    return venue_ratio > .7 and _same_pages(entry1, entry2)
+
 def get_duplicate_index_pairs(entries, among=None):
     """Return the index pairs `(i, j)` with `i < j` of all entries that are
-    duplicates, i.e., the same work stored more than once. Whether two
-    entries are duplicates does not depend on the other entries. With
+    duplicates, i.e., the same work stored more than once. Entries of
+    different types are only compared if both are papers, e.g., @article and
+    @inproceedings. Whether two entries are duplicates does not depend on the
+    other entries. With
     `among`, e.g., the indices of the cited entries, only the pairs with one
     of these entries are searched, which is much faster."""
     seq_matcher_title = SequenceMatcher()
@@ -58,7 +88,10 @@ def get_duplicate_index_pairs(entries, among=None):
     duplicates = []
     for _idx1, _idx2 in _index_pairs(len(entries), among):
         _entry1, _entry2 = entries[_idx1], entries[_idx2]
-        if _entry1[KEY_ENTRYTYPE] != _entry2[KEY_ENTRYTYPE]:
+        _type1 = _entry1[KEY_ENTRYTYPE].lower()
+        _type2 = _entry2[KEY_ENTRYTYPE].lower()
+        if _type1 != _type2 and not (_type1 in _PAPER_TYPES
+                                     and _type2 in _PAPER_TYPES):
             continue
         _names1 = _entry1.get(KEY_AUTHOR, _entry1.get(KEY_EDITOR))
         _names2 = _entry2.get(KEY_AUTHOR, _entry2.get(KEY_EDITOR))
@@ -87,7 +120,9 @@ def get_duplicate_index_pairs(entries, among=None):
         if _author_ratio < .9:
             continue
         _same_misc = True
-        if _entry1[KEY_ENTRYTYPE] == "inproceedings":
+        if _type1 != _type2:
+            _same_misc = _same_paper(_entry1, _entry2)
+        elif _entry1[KEY_ENTRYTYPE] == "inproceedings":
             _same_misc = _same_misc and (_get_year(_entry1) == _get_year(_entry2))
             _same_misc = _same_misc and (SequenceMatcher(None, _entry1.get(KEY_BOOKTITLE, ""), _entry2.get(KEY_BOOKTITLE, "")).ratio() > .7)
         elif _entry1[KEY_ENTRYTYPE] == "article":

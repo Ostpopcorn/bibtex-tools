@@ -105,6 +105,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- Duplicate entries of different types are found if both are papers, e.g., a
+  conference paper as `@inproceedings` and as `@article` with the
+  proceedings as journal, like Google Scholar exports it. They must be from
+  the same year, in a similar venue, and have similar pages if both have
+  pages, so that the journal version of a conference paper is kept.
 - Web app: an undefined abbreviation (`@string`) no longer stops the preview.
   Its name is kept as text and listed in a warning.
 - Replacing unicode characters (`clean`, `replace_unicode_in_entry`) converts
