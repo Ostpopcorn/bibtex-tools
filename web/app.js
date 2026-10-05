@@ -110,9 +110,13 @@ const state = {
 function makePane(el) {
   const [padTop, content, padBottom] = ["pad", "content", "pad"].map((cls) =>
     Object.assign(document.createElement("div"), { className: cls }));
-  el.append(padTop, content, padBottom);
-  return { el, content, padTop, padBottom, top: 0, bottom: 0, entries: [], byOrigin: new Map(),
-           last: 0, expected: null, link: null };
+  // Shown while searching without a match
+  const empty = Object.assign(document.createElement("p"), {
+    className: "search-empty", hidden: true, textContent: "No entries match the search.",
+  });
+  el.append(padTop, content, padBottom, empty);
+  return { el, content, padTop, padBottom, empty, top: 0, bottom: 0, all: [], allByOrigin: new Map(),
+           entries: [], byOrigin: new Map(), last: 0, expected: null, link: null };
 }
 
 const panes = {
@@ -1059,8 +1063,12 @@ function renderPreview(unresolved) {
   panes.preview.content.innerHTML = parts.join("");
 }
 
+// The entries of a pane, and the shown ones: while searching, only the
+// entries that match
 function indexPane(pane) {
-  pane.entries = $$(".entry", pane.el).filter((el) => el.dataset.origin);
+  pane.all = $$(".entry", pane.el).filter((el) => el.dataset.origin);
+  pane.allByOrigin = new Map(pane.all.map((el) => [el.dataset.origin, el]));
+  pane.entries = search.filter ? pane.all.filter((el) => search.filter.has(el.dataset.origin)) : pane.all;
   pane.byOrigin = new Map(pane.entries.map((el) => [el.dataset.origin, el]));
   pane.link = null;
 }
@@ -1072,8 +1080,13 @@ function render() {
   const unresolved = new Set(r ? r.unresolved_pairs.flat() : []);
   renderOriginal(outByOrigin, unresolved);
   renderPreview(unresolved);
+  search.words = null;
+  search.marked = [];
   indexPane(panes.original);
   indexPane(panes.preview);
+  // While searching, only the entries that match are shown
+  if (search.tokens.length) runSearch({ keep: true });
+  else renderSearch();
   // The new content can change the scroll positions, which are not the user's
   for (const pane of Object.values(panes)) handled(pane);
   restoreAnchor(panes[state.lastPane], anchor);
@@ -1094,10 +1107,6 @@ function render() {
   renderMeta();
   renderStatus();
   renderArxivState();
-  search.words = null;
-  search.marked = [];
-  if (search.tokens.length) runSearch({ keep: true });
-  else renderSearch();
   if (dialog.open) renderDuplicate();
 }
 
@@ -1444,7 +1453,7 @@ function select(origin, fromName) {
   state.selected = state.selected === origin ? null : origin;
   state.lastPane = fromName;
   for (const pane of Object.values(panes)) {
-    pane.entries.forEach((el) => el.classList.toggle("selected", el.dataset.origin === state.selected));
+    pane.all.forEach((el) => el.classList.toggle("selected", el.dataset.origin === state.selected));
   }
   if (!state.selected) return;
   const from = panes[fromName];
@@ -1459,7 +1468,8 @@ function select(origin, fromName) {
 
 // Fuzzy search in both panes: an entry matches if each word of the query is
 // in it, as a part of a word or with a typo, in any order. Accents, case, and
-// LaTeX, e.g., Erd{\H o}s, are ignored.
+// LaTeX, e.g., Erd{\H o}s, are ignored. Only the entries that match are
+// shown.
 const search = {
   query: "",      // the query of the matches
   tokens: [],     // its words
@@ -1467,6 +1477,7 @@ const search = {
   current: -1,    // index of the shown match
   words: null,    // origin -> words of the entry in both panes
   marked: [],     // lines with marked words
+  filter: null,   // origins of the shown entries while searching
 };
 
 function normalizeText(text) {
@@ -1516,7 +1527,7 @@ function searchIndex() {
   if (search.words) return search.words;
   const words = new Map();
   for (const pane of [panes.original, panes.preview]) {
-    for (const el of pane.entries) {
+    for (const el of pane.all) {
       const text = $$(".t", el).map((t) => t.textContent).join(" ");
       const set = words.get(el.dataset.origin) || new Set();
       for (const word of searchWords(text)) set.add(word);
@@ -1533,7 +1544,7 @@ function markMatches() {
   search.marked = [];
   for (const origin of search.matches) {
     for (const pane of [panes.original, panes.preview]) {
-      const entry = pane.byOrigin.get(origin);
+      const entry = pane.allByOrigin.get(origin);
       for (const t of entry ? $$(".t", entry) : []) {
         const text = t.textContent;
         let html = "";
@@ -1568,29 +1579,52 @@ function runSearch({ keep = false } = {}) {
   search.query = $("#search-input").value;
   search.tokens = searchWords(search.query);
   const words = searchIndex();
-  search.matches = !search.tokens.length ? [] : panes.original.entries.map((el) => el.dataset.origin)
+  search.matches = !search.tokens.length ? [] : panes.original.all.map((el) => el.dataset.origin)
     .filter((origin) => {
       const entryWords = [...words.get(origin)];
       return search.tokens.every((token) => entryWords.some((word) => wordMatches(token, word)));
     });
   markMatches();
+  filterEntries();
   const kept = keep ? search.matches.indexOf(current) : -1;
   search.current = kept >= 0 ? kept : search.matches.length ? 0 : -1;
   renderSearch();
-  if (!keep && search.current >= 0) showMatch();
+  if (keep) return;
+  if (search.current >= 0) showMatch();
+  else if (!search.tokens.length && state.selected) revealEntry(state.selected);
 }
 
-// Show the current match in both panes, at the same height, like a click on
-// it. The matches are entries of the original, which the preview follows.
+// Show only the entries that match, and the files with them, while searching
+function filterEntries() {
+  search.filter = search.tokens.length ? new Set(search.matches) : null;
+  for (const pane of [panes.original, panes.preview]) {
+    pane.content.classList.toggle("filtering", Boolean(search.filter));
+    for (const el of pane.all) el.classList.toggle("match", Boolean(search.filter?.has(el.dataset.origin)));
+    for (const section of $$(".src", pane.content)) {
+      section.classList.toggle("has-match", Boolean($(".entry.match", section)));
+    }
+    pane.empty.hidden = !search.filter || search.filter.size > 0;
+    indexPane(pane);
+  }
+}
+
+// Show the current match in both panes, at the same height, like a click on it
 function showMatch() {
-  const origin = search.matches[search.current];
+  revealEntry(search.matches[search.current]);
+  renderSearch();
+}
+
+// Select an entry and show it in both panes at the same height. It is shown
+// in the original, which has all entries, and the preview follows.
+function revealEntry(origin) {
   const from = panes.original;
   const to = panes.preview;
   const el = from.byOrigin.get(origin);
+  if (!el) return;
   state.selected = origin;
   state.lastPane = "original";
   for (const pane of Object.values(panes)) {
-    pane.entries.forEach((entry) => entry.classList.toggle("selected", entry.dataset.origin === origin));
+    pane.all.forEach((entry) => entry.classList.toggle("selected", entry.dataset.origin === origin));
   }
   setView(from, Math.min(Math.max(0, contentTop(from, el) - from.el.clientHeight * 0.2), maxView(from)));
   const target = to.byOrigin.get(origin);
@@ -1598,7 +1632,6 @@ function showMatch() {
   else if (state.linkScroll) align(from, to);
   handled(from);
   handled(to);
-  renderSearch();
 }
 
 function stepSearch(step) {
