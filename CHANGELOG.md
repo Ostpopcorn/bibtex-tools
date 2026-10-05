@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add `core.titles.protect_title` with three ways to protect titles: keep
   them (`keep`), braces around acronyms (`acronyms`), or braces around the
   whole title (`whole`).
+- Web app: a fuzzy search in both panes at once, in the top bar (Ctrl+F). It
+  finds the entries with all the words of the query in any order, as a part
+  of a word or with a typo, without regard to case, accents, and LaTeX, e.g.,
+  "erdos" finds `Erd{\H o}s`. The words are marked on both sides, and Enter
+  shows the next match at the same height on both sides.
 - Web app: a switch at the top of the settings between output for biblatex
   and for BibTeX. In BibTeX mode, the settings that BibTeX styles cannot use
   are off, with the reason on hover: months as numbers, arXiv preprints as
