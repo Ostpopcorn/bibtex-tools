@@ -38,7 +38,7 @@ all the work.  It was made by Ostpopcorn, and its code is in
   the other side.
 * Search both sides at once (Ctrl+F): the search is fuzzy, so it finds the
   entries with all the words in any order, also with a typo or without
-  accents.  With the periscope button, only the entries that match are
+  accents.  With the spyglass button, only the entries that match are
   shown, or all entries with the matches marked.  Enter shows the next match
   on both sides.
 * Choose which entry of each pair of duplicate entries to remove, with the

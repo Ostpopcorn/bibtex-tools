@@ -222,7 +222,7 @@ body:not(.has-files) .search { display: none; }
 .search-filter:hover { background: var(--surface-3); color: var(--text); }
 .search-filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-filter[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.search-filter svg { width: 15px; height: 15px; }
+.search-filter svg { width: 17px; height: 17px; }
 .search .icon-btn svg { width: 15px; height: 15px; }
 /* While searching, only the entries that match, with a blank line between
    them, and the files with them */

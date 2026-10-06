@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Web app: a fuzzy search in both panes at once, in the top bar (Ctrl+F). It
   finds the entries with all the words of the query in any order, as a part
   of a word or with a typo, without regard to case, accents, and LaTeX, e.g.,
-  "erdos" finds `Erd{\H o}s`. The periscope button next to it shows only the
+  "erdos" finds `Erd{\H o}s`. The spyglass button next to it shows only the
   entries that match on both sides (the default), or all entries. The words
   that match are marked, and Enter shows the next match at the same height
   on both sides.
