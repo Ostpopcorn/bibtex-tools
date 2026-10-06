@@ -12,6 +12,7 @@ const ARXIV_KEY = "bibtextools.arxiv.v1";
 const ARXIV_CONSENT_KEY = "bibtextools.arxiv-allowed.v1";
 const THEME_KEY = "bibtextools.theme";
 const SIDEBAR_KEY = "bibtextools.sidebar-hidden.v1";
+const SEARCH_FILTER_KEY = "bibtextools.search-only-matches.v1";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
 const ARXIV_STYLES = ["keep", "eprint", "journal"];
 const TITLE_MODES = ["keep", "acronyms", "whole"];
@@ -1478,6 +1479,8 @@ const search = {
   words: null,    // origin -> words of the entry in both panes
   marked: [],     // lines with marked words
   filter: null,   // origins of the shown entries while searching
+  // Show only the entries that match, or all entries with the matches marked
+  onlyMatches: loadJson(SEARCH_FILTER_KEY, true) !== false,
 };
 
 function normalizeText(text) {
@@ -1596,7 +1599,7 @@ function runSearch({ keep = false } = {}) {
 
 // Show only the entries that match, and the files with them, while searching
 function filterEntries() {
-  search.filter = search.tokens.length ? new Set(search.matches) : null;
+  search.filter = search.tokens.length && search.onlyMatches ? new Set(search.matches) : null;
   for (const pane of [panes.original, panes.preview]) {
     pane.content.classList.toggle("filtering", Boolean(search.filter));
     for (const el of pane.all) el.classList.toggle("match", Boolean(search.filter?.has(el.dataset.origin)));
@@ -1664,6 +1667,24 @@ $("#search-input").addEventListener("keydown", (event) => {
 });
 $("#search-prev").addEventListener("click", () => stepSearch(-1));
 $("#search-next").addEventListener("click", () => stepSearch(1));
+
+function renderSearchFilter() {
+  const button = $("#search-filter");
+  button.setAttribute("aria-pressed", String(search.onlyMatches));
+  button.title = search.onlyMatches
+    ? "Showing only the entries that match. Click to show all entries."
+    : "Showing all entries, with the matches marked. Click to show only the entries that match.";
+}
+
+$("#search-filter").addEventListener("click", () => {
+  search.onlyMatches = !search.onlyMatches;
+  saveJson(SEARCH_FILTER_KEY, search.onlyMatches);
+  renderSearchFilter();
+  filterEntries();
+  if (search.current >= 0) showMatch();
+  else if (state.selected) revealEntry(state.selected);
+});
+renderSearchFilter();
 // Ctrl+F searches the entries; pressed again in the search box, it opens the
 // search of the browser
 document.addEventListener("keydown", (event) => {

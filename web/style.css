@@ -205,6 +205,24 @@ body:not(.has-files) .search { display: none; }
 .search-count { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .search-count.none { color: var(--rm-text); }
 .search .icon-btn { width: 24px; height: 24px; color: var(--muted); }
+/* Show only the entries that match, or all of them */
+.search-filter {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 24px;
+  margin-left: 3px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.search-filter:hover { background: var(--surface-3); color: var(--text); }
+.search-filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-filter[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.search-filter svg { width: 15px; height: 15px; }
 .search .icon-btn svg { width: 15px; height: 15px; }
 /* While searching, only the entries that match, with a blank line between
    them, and the files with them */
