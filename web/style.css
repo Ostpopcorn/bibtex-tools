@@ -317,7 +317,9 @@ body.settings-shown .sidebar { display: flex; }
 .sidebar-head h2 { flex: 1; font-size: 14px; font-weight: 650; }
 .sidebar-head .icon-btn { color: var(--muted); }
 .sidebar-head .icon-btn:hover { color: var(--text); }
-.sidebar-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* `0px`, not `0%`, so that the settings never make the page taller: they
+   scroll by themselves, also in short windows */
+.sidebar-body { flex: 1 1 0px; min-height: 0; overflow-y: auto; }
 .backdrop { display: none; position: fixed; inset: 0; z-index: 29; background: rgba(10, 14, 22, .35); }
 
 /* The hidden settings: a bar on the left, which opens them */
@@ -931,13 +933,14 @@ svg.icon-fill { fill: currentColor; stroke: none; }
     width: min(360px, 100vw);
     box-shadow: var(--shadow-lg);
   }
+  .sidebar-body { overscroll-behavior: contain; }
   body.settings-overlay .backdrop { display: block; }
   .legend { display: none; }
 }
 /* Small windows scroll the page instead of squeezing the panes */
 @media (max-width: 1100px), (max-height: 760px) {
   body { height: auto; min-height: 100%; }
-  .layout { flex: none; }
+  .layout { flex: 1 0 auto; }
   .pane { height: max(420px, calc(100vh - 110px)); }
   .empty { padding-bottom: 24px; }
 }
