@@ -112,6 +112,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- Web app: in short windows, e.g., a zoomed in browser, the settings scroll
+  by themselves again, with their own scrollbar. Before, they made the page
+  taller, and newer versions of Chrome did not scroll the page with the
+  mouse over them.
 - Duplicate entries of different types are found if both are papers, e.g., a
   conference paper as `@inproceedings` and as `@article` with the
   proceedings as journal, like Google Scholar exports it. They must be from
