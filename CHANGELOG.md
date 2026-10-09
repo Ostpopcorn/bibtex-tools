@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add `core.titles.protect_title` with three ways to protect titles: keep
   them (`keep`), braces around acronyms (`acronyms`), or braces around the
   whole title (`whole`).
+- Web app: _Reset all settings_ at the end of the settings, which asks
+  first. The files stay open, and a loaded `.bbl` or abbreviation file is
+  used again.
+- Web app: a clear button in the search box, in all browsers. The head of
+  the settings hides them, like the bar on the left shows them: the title,
+  the button, and the space between them.
 - Web app: a fold button in the top bar, which folds the runs of unchanged
   entries in both panes, so that you see only what changes. An entry is
   unchanged if nothing in it is highlighted: its key, type, and fields are

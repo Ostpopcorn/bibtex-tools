@@ -564,8 +564,10 @@ function showSettings(show) {
   $(show ? "#sidebar-hide" : "#sidebar-show").focus();
 }
 
+// Like the bar opens them, the head of the settings hides them: the title,
+// the button, and the space between them
 $("#rail").addEventListener("click", () => showSettings(true));
-$("#sidebar-hide").addEventListener("click", () => showSettings(false));
+$(".sidebar-head").addEventListener("click", () => showSettings(false));
 $("#sidebar-backdrop").addEventListener("click", () => showSettings(false));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && narrow.matches && sidebar.open && !document.querySelector("dialog[open]")) {
@@ -635,6 +637,24 @@ $("#remove-tags").addEventListener("click", (event) => {
   if (event.target.id === "remove-tags") $("#remove-input").focus();
 });
 $("#remove-reset").addEventListener("click", () => setRemoveFields(null));
+
+/* Reset all settings */
+
+const resetDialog = $("#reset-dialog");
+$("#settings-reset").addEventListener("click", () => resetDialog.showModal());
+resetDialog.addEventListener("click", (event) => {
+  if (event.target === resetDialog || event.target.closest("[data-dialog-close]")) resetDialog.close();
+});
+// The defaults, like on the first visit with the files that are open: a
+// .bbl or abbreviation file is used, like when it was opened
+$("#reset-confirm").addEventListener("click", () => {
+  resetDialog.close();
+  state.settings = structuredClone(DEFAULT_SETTINGS);
+  state.settings.cited.enabled = Boolean(state.bbl);
+  state.settings.strings.enabled = Boolean(state.abbr);
+  settingChanged();
+  toast("The settings are back to their defaults.");
+});
 
 /* Files */
 
@@ -1698,6 +1718,7 @@ function markMatches() {
 }
 
 function renderSearch() {
+  $("#search-clear").hidden = !$("#search-input").value;
   const count = $("#search-count");
   const n = search.matches.length;
   count.textContent = !search.tokens.length ? "" : n ? `${search.current + 1} of ${n}` : "No match";
@@ -1780,7 +1801,8 @@ function stepSearch(step) {
 }
 
 let searchTimer;
-$("#search-input").addEventListener("input", () => {
+$("#search-input").addEventListener("input", (event) => {
+  $("#search-clear").hidden = !event.target.value;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => runSearch(), 120);
 });
@@ -1799,6 +1821,12 @@ $("#search-input").addEventListener("keydown", (event) => {
       event.target.blur();
     }
   }
+});
+$("#search-clear").addEventListener("click", () => {
+  clearTimeout(searchTimer);
+  $("#search-input").value = "";
+  runSearch();
+  $("#search-input").focus();
 });
 $("#search-prev").addEventListener("click", () => stepSearch(-1));
 $("#search-next").addEventListener("click", () => stepSearch(1));
