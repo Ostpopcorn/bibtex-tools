@@ -146,6 +146,7 @@ h1, h2, h3 { margin: 0; }
 .btn.large { height: 40px; padding: 0 18px; font-size: 14px; }
 .btn.icon-btn { padding: 0; width: 32px; justify-content: center; font-size: 18px; line-height: 1; }
 .btn.tiny.icon-btn { width: 24px; font-size: 16px; }
+.btn.toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
 .check {
   display: inline-flex;
@@ -198,7 +199,8 @@ body:not(.has-files) .add-wrap { display: none; }
   color: var(--muted);
 }
 .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-body:not(.has-files) .search { display: none; }
+body:not(.has-files) .search,
+body:not(.has-files) #fold { display: none; }
 .search > svg { width: 15px; height: 15px; }
 .search input { flex: 1; min-width: 60px; height: 100%; padding: 0 6px; border: 0; outline: 0; background: transparent; color: var(--text); font: 13px var(--ui-font); }
 .search input::-webkit-search-cancel-button { cursor: pointer; }
@@ -231,6 +233,9 @@ body:not(.has-files) .search { display: none; }
 .content.filtering .entry:not(.match),
 .content.filtering > .src:not(.has-match) { display: none; }
 .content.filtering .entry.match { margin-bottom: 1.6em; }
+/* The search shows the folded entries that match, without the folds */
+.content.filtering .folded { display: contents; }
+.content.filtering .folded > .l { display: none; }
 .search-empty { margin: 0; padding: 24px 16px; color: var(--muted); font: 13px var(--ui-font); text-align: center; }
 /* Words that match the search */
 .code mark { padding: 0 1px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 26%, transparent); color: inherit; }
@@ -651,6 +656,24 @@ body:not(.has-files) .gutter { display: none; }
 .entry.gone { background: var(--rm-bg); }
 .entry.gone .l { border-left-color: var(--rm-bar); }
 .entry.gone .t { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--rm-bar) 60%, transparent); }
+/* A run of unchanged entries that is folded. A fold is three lines high, so
+   that it stands out from the lines. */
+.folded { display: none; }
+.l.fold {
+  align-items: center;
+  height: 4.8em;
+  border-block: 2px solid var(--surface);
+  background: var(--surface-3);
+  background-clip: padding-box;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.l.fold .n { display: flex; justify-content: flex-end; color: inherit; }
+.l.fold .n svg { width: 14px; height: 14px; }
+.l.fold .t { font: 500 12px var(--ui-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.l.fold:hover { background: color-mix(in srgb, var(--surface-3) 55%, var(--border-strong)); color: var(--text); }
+.l.fold:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* Possible duplicates are marked without hiding the highlighted changes */
 .entry.dup .l:not(.add):not(.chg):not(.rm) { border-left-color: var(--dup-bar); }
 

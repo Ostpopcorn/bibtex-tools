@@ -35,7 +35,9 @@ all the work.  It was made by Ostpopcorn, and its code is in
   combined like with `combine`.
 * Changed fields are highlighted on both sides, and removed fields and entries
   are marked in the original.  Click an entry to show it at the same height on
-  the other side.
+  the other side.  With the fold button, the unchanged entries are folded on
+  both sides, so that you see only what changes.  Click a fold to show its
+  entries.
 * Search both sides at once (Ctrl+F): the search is fuzzy, so it finds the
   entries with all the words in any order, also with a typo or without
   accents.  With the spyglass button, only the entries that match are
