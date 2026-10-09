@@ -29,8 +29,8 @@ all the work.  It was made by Ostpopcorn, and its code is in
   output is for biblatex or BibTeX: in BibTeX mode, the settings that BibTeX
   styles cannot use are off, and a `.bbl` file sets the mode.  Fields can be
   converted to the names of biblatex or BibTeX, e.g., `journaltitle` and
-  `journal`.  Hide the settings to
-  a bar on the left to give the files more room.  Open, drop, or paste
+  `journal`.  _Reset all settings_ at the end brings back the defaults.
+  Hide the settings to a bar on the left to give the files more room.  Open, drop, or paste
   (Ctrl+V) bib files, `.bbl` files, and abbreviations.  Multiple bib files are
   combined like with `combine`.
 * Changed fields are highlighted on both sides, and removed fields and entries

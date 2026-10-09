@@ -203,7 +203,8 @@ body:not(.has-files) .search,
 body:not(.has-files) #fold { display: none; }
 .search > svg { width: 15px; height: 15px; }
 .search input { flex: 1; min-width: 60px; height: 100%; padding: 0 6px; border: 0; outline: 0; background: transparent; color: var(--text); font: 13px var(--ui-font); }
-.search input::-webkit-search-cancel-button { cursor: pointer; }
+/* The clear button of the browser is replaced by one that all browsers show */
+.search input::-webkit-search-cancel-button { appearance: none; }
 .search-count { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .search-count.none { color: var(--rm-text); }
 .search .icon-btn { width: 24px; height: 24px; color: var(--muted); }
@@ -318,10 +319,21 @@ body:not(.has-files) #fold { display: none; }
   border-right: 1px solid var(--border);
 }
 body.settings-shown .sidebar { display: flex; }
-.sidebar-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 18px; border-bottom: 1px solid var(--border); }
+/* The whole head hides the settings, like the bar shows them */
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 18px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.sidebar-head:hover { background: var(--surface-2); }
 .sidebar-head h2 { flex: 1; font-size: 14px; font-weight: 650; }
 .sidebar-head .icon-btn { color: var(--muted); }
-.sidebar-head .icon-btn:hover { color: var(--text); }
+.sidebar-head:hover .icon-btn { color: var(--text); }
+.sidebar-foot { padding: 14px 18px 20px; }
 /* `0px`, not `0%`, so that the settings never make the page taller: they
    scroll by themselves, also in short windows */
 .sidebar-body { flex: 1 1 0px; min-height: 0; overflow-y: auto; }
