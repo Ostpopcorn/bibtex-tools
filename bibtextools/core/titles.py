@@ -15,9 +15,6 @@ TITLE_MODES = (TITLE_KEEP, TITLE_ACRONYMS, TITLE_WHOLE)
 # An acronym, also with hyphens, e.g., `IEEE` and `COVID-19`, a word with
 # capitals inside, e.g., `mmWave`, or math
 _RE_ACRONYM = re.compile(r'((?:[0-9A-Z]+-)*[0-9A-Z]+\b)|([a-zA-Z]+[A-Z0-9]+[a-zA-Z\b]*)|(\$[\w\\+-=]*\$)')
-# The start of the title or of a subtitle after a colon, whose first letter
-# styles keep, also in braces
-_RE_START = re.compile(r'(?:^|:\s)\s*\{?$')
 _RE_DOUBLE = re.compile(r'\{{2}((?:\{??[^\{]*?))\}{2}')
 _RE_INNER = re.compile(r'\{((?:\{??[^\{]*?))\}')
 
@@ -38,20 +35,11 @@ def is_wrapped(title):
             return _idx == len(title) - 1
     return False
 
-def _protect_acronym(match):
-    """Braces around an acronym, except a single letter at the start of the
-    title or a subtitle, e.g., the `A` of `Theory: A Study`, which styles
-    keep."""
-    _acronym = match.group()
-    if len(_acronym) == 1 and _RE_START.search(match.string, 0, match.start()):
-        return _acronym
-    return "{" + _acronym + "}"
-
 def protect_acronyms(title):
     """Put braces around the acronyms of a title, e.g., `IEEE`, `5G`,
     `A-BC`, and `mmWave`, and around math. Braces around the whole title are
     removed."""
-    _shielded = _RE_ACRONYM.sub(_protect_acronym, title)
+    _shielded = _RE_ACRONYM.sub(r'{\g<0>}', title)
     _shielded = _RE_DOUBLE.sub(r'{\g<1>}', _shielded)
     _without_inner = _RE_INNER.sub(r"\g<1>", _shielded)
     _remove_curly_w_acros = _surrounded_by_curly(_without_inner)

@@ -15,13 +15,12 @@ from bibtextools.util import Macro, format_bib_entries, read_bib_string
     ("The IEEE Standard", "The IEEE Standard", "The {IEEE} Standard",
      "{The IEEE Standard}"),
     # no braces in braces, which the old whole-title mode added
-    # styles keep the first letter of a title and of a subtitle in BibTeX
     ("A Mathematical Theory", "A Mathematical Theory",
-     "A Mathematical Theory", "{A Mathematical Theory}"),
-    ("{A Title}", "{A Title}", "A Title", "{A Title}"),
-    ("Thing: A thing", "Thing: A thing", "Thing: A thing",
+     "{A} Mathematical Theory", "{A Mathematical Theory}"),
+    ("{A Title}", "{A Title}", "{A} Title", "{A Title}"),
+    # one-letter words are protected too, also where styles keep them
+    ("Thing: A thing", "Thing: A thing", "Thing: {A} thing",
      "{Thing: A thing}"),
-    # but not of other one-letter words
     ("Type A Errors", "Type A Errors", "Type {A} Errors", "{Type A Errors}"),
     # acronyms with hyphens are one acronym
     ("A-BC: COVID-19 in 5G-NR", "A-BC: COVID-19 in 5G-NR",
