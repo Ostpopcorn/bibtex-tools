@@ -31,7 +31,8 @@ from .core.cited import add_referenced_ids, resolve_cited_duplicates
 from .core.duplicates import (get_duplicate_index_pairs,
                               get_duplicate_index_pairs_of,
                               remove_shorter_duplicate)
-from .core.fields import clean_fields, remove_fields
+from .core.fields import (BIBTEX_FIELD_CLEANERS, FIELD_CLEANERS, clean_fields,
+                          remove_fields)
 from .core.formats import to_biblatex, to_bibtex
 from .core.journals import abbreviate_journalname
 from .core.keys import generate_key_in_entry, rename_duplicate_keys
@@ -68,7 +69,8 @@ class PipelineOptions:
     #: For `DUPLICATES_CHOOSE`: pair of origins -> origin of the entry to
     #: remove, or `None` to keep both. Pairs without a decision are kept.
     duplicate_decisions: dict = field(default_factory=dict)
-    #: Fields that are cleaned with `core.fields.FIELD_CLEANERS`
+    #: Fields that are cleaned with `core.fields.FIELD_CLEANERS`, or with
+    #: `core.fields.BIBTEX_FIELD_CLEANERS` if the output is for BibTeX
     clean_fields: tuple = ()
     #: How titles are protected, one of `core.titles.TITLE_MODES`
     titles: str = TITLE_KEEP
@@ -109,8 +111,11 @@ def entry_steps(options, generate_keys=None):
         generate_keys = options.generate_keys
     steps = []
     if options.clean_fields:
-        steps.append(functools.partial(clean_fields,
-                                       fields=options.clean_fields))
+        steps.append(functools.partial(
+            clean_fields, fields=options.clean_fields,
+            cleaners=(BIBTEX_FIELD_CLEANERS
+                      if options.output_format() == OUTPUT_BIBTEX
+                      else FIELD_CLEANERS)))
     if options.titles != TITLE_KEEP:
         steps.append(functools.partial(protect_title_in_entry,
                                        mode=options.titles))

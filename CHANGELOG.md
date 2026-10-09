@@ -63,9 +63,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   on both sides.
 - Web app: a switch at the top of the settings between output for biblatex
   and for BibTeX. In BibTeX mode, the settings that BibTeX styles cannot use
-  are off, with the reason on hover: months as numbers, arXiv preprints as
-  `@misc` with `eprint`, and the arXiv categories. They keep their value for
-  biblatex. A loaded `.bbl` file sets the output to its backend.
+  are off, with the reason on hover: arXiv preprints as `@misc` with
+  `eprint`, and the arXiv categories. They keep their value for biblatex. A
+  loaded `.bbl` file sets the output to its backend.
+- Months for BibTeX are written as the abbreviations that BibTeX styles
+  define, without braces, e.g., `{August}`, `{aug}`, and `{8}` as `aug`, which
+  the style prints in its own way, e.g., as "Aug." or "August". This is the
+  month setting in BibTeX mode (`core.fields.BIBTEX_FIELD_CLEANERS`), and the
+  month of a converted `date`. In braces, `{aug}` was printed as it is. The
+  new `util.Macro` is a value that is written without braces.
 - Add the `output` option to `PipelineOptions` ("biblatex" or "bibtex"),
   which decides whether the other cited keys of a duplicate go into `ids`
   (biblatex only). By default, the backend of the `.bbl` file decides.
@@ -119,6 +125,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
+- Protecting the acronyms of titles no longer puts braces around a single
+  letter at the start of the title or of a subtitle after a colon, e.g., the
+  `A` of `Theory: A Study`, since styles keep it. Acronyms with hyphens get
+  one pair of braces, e.g., `{A-BC}` and `{COVID-19}` instead of `{A}-{BC}`
+  and `{COVID}-{19}`.
+- Web app: a bare value, e.g., `month = aug`, is marked as changed from the
+  same text in braces, `{aug}`, since BibTeX reads them differently.
 - Web app: in short windows, e.g., a zoomed in browser, the settings scroll
   by themselves again, with their own scrollbar. Before, they made the page
   taller, and newer versions of Chrome did not scroll the page with the

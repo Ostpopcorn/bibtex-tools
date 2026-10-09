@@ -126,6 +126,23 @@ def test_run_changed_is_what_is_shown():
     assert out["changed"] == ["month", "url"]
     assert out["fields"]["month"] == [1, 1]
 
+@pytest.mark.parametrize("output,expected", [
+    ("bibtex", {"a": ("nov", []), "b": ("aug", ["month"]),
+                "c": ("nov", ["month"])}),
+    ("biblatex", {"a": ("{11}", ["month"]), "b": ("{8}", ["month"]),
+                  "c": ("{11}", [])}),
+])
+def test_run_months_for_the_output(output, expected):
+    text = ("@misc{a, month = nov}\n@misc{b, month = {aug}}\n"
+            "@misc{c, month = {11}}\n")
+    response = _run({"sources": [{"name": "a.bib", "text": text}],
+                     "options": {"output": output, "clean_fields": ["month"]}})
+    for out in response["entries"]:
+        month, changed = expected[out["id"]]
+        assert "month = {},".format(month) in out["text"]
+        # `aug` and `{aug}` differ, but `nov` and `nov` do not
+        assert out["changed"] == changed
+
 def test_run_arxiv_style():
     request = {"sources": [_source("arxiv.bib")],
                "options": {"arxiv_style": "eprint", "arxiv": True}}

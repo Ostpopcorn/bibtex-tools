@@ -197,7 +197,7 @@
                   <li><p class="rule-change"><code>institution</code> → <code>school</code>, in theses</p>
                     <p class="rule-why">BibTeX styles take the university of a thesis from <code>school</code>.</p></li>
                   <li><p class="rule-change"><code>date</code> → <code>year</code> and <code>month</code></p>
-                    <p class="rule-why">BibTeX styles have no date field, and read <code>year</code> and <code>month</code> instead. A range of dates, and a date with another year than the year field, are kept.</p></li>
+                    <p class="rule-why">BibTeX styles have no date field, and read <code>year</code> and <code>month</code> instead, e.g., <code>month = jul</code>. A range of dates, and a date with another year than the year field, are kept.</p></li>
                   <li><p class="rule-change"><code>journaltitle</code> → <code>journal</code>, <code>location</code> → <code>address</code>, <code>annotation</code> → <code>annote</code></p>
                     <p class="rule-why">BibTeX styles ignore these biblatex names, so the journal, the place, and the annotation would be missing in the bibliography.</p></li>
                   <li><p class="rule-change"><code>eprinttype</code> → <code>archivePrefix</code>, <code>eprintclass</code> → <code>primaryClass</code></p>
@@ -212,8 +212,8 @@
             <p class="hint">E.g., <code>17-61</code> → <code>17--61</code></p>
           </div>
           <div class="opt">
-            <label class="check"><input type="checkbox" data-field="month"><span>Write months as numbers</span></label>
-            <p class="hint">E.g., <code>jul</code> → <code>7</code></p>
+            <label class="check"><input type="checkbox" data-field="month"><span id="month-label">Write months as numbers</span></label>
+            <p class="hint" id="month-hint">E.g., <code>jul</code> → <code>7</code></p>
           </div>
           <div class="opt">
             <label class="check"><input type="checkbox" data-field="author"><span>Write names as “Last, First”</span></label>

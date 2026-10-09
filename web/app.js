@@ -22,7 +22,6 @@ const FORMAT_NAMES = { biblatex: "biblatex", bibtex: "BibTeX" };
 // Settings that BibTeX styles cannot use, with the reason shown on hover. In
 // BibTeX mode they are shown off and not applied, but keep their value.
 const BIBLATEX_ONLY = {
-  month: "BibTeX styles print the number as it is, e.g., “7 1948”, so the month name is kept.",
   eprintStyle: "standard BibTeX styles ignore eprint and archivePrefix, so the preprint would show no arXiv ID.",
   lookup: "standard BibTeX styles ignore primaryClass.",
 };
@@ -44,6 +43,20 @@ const CONVERT = {
     example: "E.g., <code>journaltitle</code> → <code>journal</code>, <code>@online</code> → <code>@misc</code>",
     title: "Use the names that BibTeX reads, e.g., journaltitle → journal, location → address, " +
       "date → year and month, @online → @misc, and @thesis → @phdthesis. BibTeX ignores the biblatex names.",
+  },
+};
+// Writing the months, which follows the output
+const MONTHS = {
+  biblatex: {
+    label: "Write months as numbers",
+    example: "E.g., <code>jul</code> → <code>7</code>",
+    title: "biblatex reads the month as a number, and prints it in the language of your document.",
+  },
+  bibtex: {
+    label: "Write months as abbreviations",
+    example: "E.g., <code>{August}</code> → <code>aug</code>",
+    title: "BibTeX styles define jan to dec, and print them in their own way, e.g., as “Aug.” or “August”. " +
+      "A month in braces is printed as it is, e.g., “aug”.",
   },
 };
 const TITLE_HINTS = {
@@ -275,7 +288,6 @@ function effectiveSettings() {
   // New keys would break the citations of the .bbl file
   if (s.cited.enabled && state.bbl) s.keys.generate = false;
   if (s.format === "bibtex") {
-    s.fields.clean = cleanFields().filter((f) => f !== "month");
     if (s.arxiv.style === "eprint") s.arxiv.style = "keep";
     s.arxiv.lookup = false;
   }
@@ -411,7 +423,6 @@ function applySettingsToUI() {
     for (const input of $$(`input[name=${name}]`)) input.checked = input.value === value;
   }
   // In BibTeX mode, the settings that BibTeX styles cannot use
-  setAvailable($("[data-field=month]"), notForBibtex(BIBLATEX_ONLY.month));
   setAvailable($("input[name=arxiv-style][value=eprint]"), notForBibtex(BIBLATEX_ONLY.eprintStyle));
   setAvailable($("[data-setting='arxiv.lookup']"), notForBibtex(BIBLATEX_ONLY.lookup));
   renderFormat();
@@ -420,6 +431,10 @@ function applySettingsToUI() {
   $("#convert-hint").innerHTML = convert.example;
   for (const rules of $$("[data-rules]")) rules.hidden = rules.dataset.rules !== s.format;
   $("#convert-label").closest("label").title = convert.title;
+  const months = MONTHS[s.format];
+  $("#month-label").textContent = months.label;
+  $("#month-hint").innerHTML = months.example;
+  $("#month-label").closest("label").title = months.title;
   const hint = $("#arxiv-style-hint");
   hint.innerHTML = ARXIV_STYLE_HINTS[s.arxiv.style];
   hint.hidden = !hint.innerHTML;
