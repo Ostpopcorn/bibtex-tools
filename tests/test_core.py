@@ -1,22 +1,33 @@
 import pytest
 
 from bibtextools.core.duplicates import get_duplicate_index_pairs
-from bibtextools.core.fields import clean_fields, remove_fields
+from bibtextools.core.fields import (BIBTEX_FIELD_CLEANERS, clean_fields,
+                                     month_to_macro, remove_fields)
 from bibtextools.core.formats import to_biblatex, to_bibtex
 from bibtextools.core.keys import generate_key, rename_duplicate_keys
 from bibtextools.core.titles import (TITLE_ACRONYMS, TITLE_KEEP, TITLE_WHOLE,
                                      is_wrapped, protect_title,
                                      protect_title_in_entry)
-from bibtextools.util import read_bib_string
+from bibtextools.util import Macro, format_bib_entries, read_bib_string
 
 
 @pytest.mark.parametrize("title,keep,acronyms,whole", [
     ("The IEEE Standard", "The IEEE Standard", "The {IEEE} Standard",
      "{The IEEE Standard}"),
     # no braces in braces, which the old whole-title mode added
+    # styles keep the first letter of a title and of a subtitle in BibTeX
     ("A Mathematical Theory", "A Mathematical Theory",
-     "{A} Mathematical Theory", "{A Mathematical Theory}"),
-    ("{A Title}", "{A Title}", "{A} Title", "{A Title}"),
+     "A Mathematical Theory", "{A Mathematical Theory}"),
+    ("{A Title}", "{A Title}", "A Title", "{A Title}"),
+    ("Thing: A thing", "Thing: A thing", "Thing: A thing",
+     "{Thing: A thing}"),
+    # but not of other one-letter words
+    ("Type A Errors", "Type A Errors", "Type {A} Errors", "{Type A Errors}"),
+    # acronyms with hyphens are one acronym
+    ("A-BC: COVID-19 in 5G-NR", "A-BC: COVID-19 in 5G-NR",
+     "{A-BC}: {COVID-19} in {5G-NR}", "{A-BC: COVID-19 in 5G-NR}"),
+    ("Detection of R-peaks", "Detection of R-peaks",
+     "Detection of {R}-peaks", "{Detection of R-peaks}"),
     # braces inside the title are kept
     (r'Caf{\'e} and {MIMO}', r'Caf{\'e} and {MIMO}', r'Caf{\'e} and {MIMO}',
      r'{Caf{\'e} and {MIMO}}'),
@@ -56,6 +67,32 @@ def test_clean_fields_only_given_fields():
     assert clean_fields(dict(entry), ()) == entry
     # the title is protected with `protect_title`, not cleaned here
     assert clean_fields({"title": "IEEE"}, ("title",)) == {"title": "IEEE"}
+
+@pytest.mark.parametrize("month,macro", [
+    ("November", "nov"), ("nov", "nov"), ("aug", "aug"), ("Aug.", "aug"),
+    ("8", "aug"), ("08", "aug"), ("12", "dec"), ("Spring", "Spring"),
+    ("13", "13")])
+def test_month_to_macro(month, macro):
+    assert month_to_macro(month) == macro
+    # a month that is not known stays text
+    assert isinstance(month_to_macro(month), Macro) == (month not in
+                                                        ("Spring", "13"))
+
+def test_clean_fields_for_bibtex():
+    entry = {"month": "aug", "pages": "1-2"}
+    assert clean_fields(dict(entry), ("month",)) == {"month": "8",
+                                                     "pages": "1-2"}
+    assert clean_fields(dict(entry), ("month", "pages"),
+                        BIBTEX_FIELD_CLEANERS) == {"month": "aug",
+                                                   "pages": "1--2"}
+
+def test_month_is_written_without_braces():
+    entry = {"ID": "Key", "ENTRYTYPE": "misc", "month": month_to_macro("8"),
+             "note": "aug"}
+    text = format_bib_entries([entry])
+    assert "month = aug," in text and "note = {aug}," in text
+    # the entry is not changed for the writer
+    assert entry["month"] == "aug" and isinstance(entry["month"], Macro)
 
 def test_remove_fields():
     entry = {"ID": "Key", "abstract": "Text", "note": "Note"}
@@ -113,7 +150,7 @@ def test_to_biblatex_keeps_existing_fields():
 
 @pytest.mark.parametrize("biblatex,bibtex", [
     ({"ENTRYTYPE": "online", "url": "u", "date": "2020-07-15"},
-     {"ENTRYTYPE": "misc", "url": "u", "year": "2020", "month": "July"}),
+     {"ENTRYTYPE": "misc", "url": "u", "year": "2020", "month": "jul"}),
     ({"ENTRYTYPE": "article", "date": "2020"},
      {"ENTRYTYPE": "article", "year": "2020"}),
     # a different year keeps the date
@@ -129,6 +166,8 @@ def test_to_biblatex_keeps_existing_fields():
 ])
 def test_to_bibtex(biblatex, bibtex):
     assert to_bibtex(biblatex) == bibtex
+    if "month" in bibtex:
+        assert isinstance(biblatex["month"], Macro)
 
 
 _PAPER = {"ID": "li2020federated", "ENTRYTYPE": "article",

@@ -53,9 +53,13 @@ class _Lines:
 
 def _normalize_value(value):
     """The value of a field as it is shown, without the braces or quotes
-    around it and with single spaces."""
+    around it and with single spaces. A value without them that is not a
+    number is the name of a string, e.g., the month `nov`, which differs from
+    the text `{nov}`, so it is marked with `#`."""
     if len(value) >= 2 and value[0] + value[-1] in ("{}", '""'):
         value = value[1:-1]
+    elif value and not value.isdigit():
+        value = "#" + value
     return " ".join(value.split())
 
 def _locate_fields(text, start, end, line):

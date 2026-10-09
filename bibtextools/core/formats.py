@@ -4,6 +4,7 @@ well, but BibTeX does not read the biblatex names."""
 import re
 
 from ..const import KEY_DATE, KEY_ENTRYTYPE, KEY_MONTH, KEY_YEAR
+from .fields import month_to_macro
 
 #: BibTeX field -> biblatex field
 BIBTEX_TO_BIBLATEX_FIELDS = {"journal": "journaltitle",
@@ -38,9 +39,6 @@ BIBLATEX_TO_BIBTEX_TYPES = {"online": "misc",
                             "report": "techreport"}
 _THESIS_TYPES = {"phdthesis": "phdthesis", "mathesis": "mastersthesis"}
 
-_MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November",
-                "December"]
 _RE_DATE = re.compile(r"\s*(\d{4})(?:-(\d{1,2}))?(?:-\d{1,2})?\s*")
 
 KEY_TYPE = "type"
@@ -69,7 +67,7 @@ def to_biblatex(entry):
 def to_bibtex(entry):
     """Use the fields and entry types of BibTeX, e.g., `journal` instead of
     `journaltitle`, `@misc` instead of `@online`, and `year` and `month`
-    instead of `date`."""
+    instead of `date`, e.g., `month = jul`."""
     entry_type = entry[KEY_ENTRYTYPE].lower()
     if entry_type == "thesis":
         _type = entry.get(KEY_TYPE, "").strip().lower()
@@ -88,7 +86,7 @@ def to_bibtex(entry):
         year, month = _match.groups()
         entry.setdefault(KEY_YEAR, year)
         if month and 1 <= int(month) <= 12 and KEY_MONTH not in entry:
-            entry[KEY_MONTH] = _MONTH_NAMES[int(month) - 1]
+            entry[KEY_MONTH] = month_to_macro(month)
         if entry[KEY_YEAR] == year:
             del entry[KEY_DATE]
     return _rename_fields(entry, BIBLATEX_TO_BIBTEX_FIELDS)

@@ -5,6 +5,7 @@ from bibtexparser.latexenc import unicode_to_latex_map
 
 from ..const import (KEY_DOI, KEY_ENTRYTYPE, KEY_EPRINT, KEY_ID, KEY_IDS,
                      KEY_URL)
+from ..util import Macro
 
 #: Fields that are keys or are read verbatim, where LaTeX would break them
 UNICODE_SKIP_FIELDS = (KEY_ID, KEY_ENTRYTYPE, KEY_IDS, KEY_URL, KEY_DOI,
@@ -28,8 +29,10 @@ def unicode_to_latex(text):
 
 def replace_unicode_in_entry(entry):
     """Convert the unicode characters of all fields of an entry to LaTeX,
-    except the fields in `UNICODE_SKIP_FIELDS`."""
+    except the fields in `UNICODE_SKIP_FIELDS` and the names of strings,
+    e.g., the month `nov`."""
     for _field in entry:
-        if _field not in UNICODE_SKIP_FIELDS:
+        if (_field not in UNICODE_SKIP_FIELDS
+                and not isinstance(entry[_field], Macro)):
             entry[_field] = unicode_to_latex(entry[_field])
     return entry

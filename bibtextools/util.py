@@ -5,7 +5,7 @@ from collections import Counter, OrderedDict
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
-from bibtexparser.bibdatabase import BibDatabase
+from bibtexparser.bibdatabase import BibDatabase, BibDataString
 
 from .const import KEY_ID
 
@@ -231,6 +231,19 @@ def load_bib_file(bib_file, abbr=None, encoding="utf-8"):
     return parse_bib_string(bib_str, abbr=abbr, source=bib_file)
 
 
+class Macro(str):
+    """A value that is written without braces, since it is the name of a
+    string that the style defines, e.g., the month `nov`. It is the name as
+    a string otherwise."""
+
+def _for_writer(entry):
+    """The entry with each `Macro` as a string of bibtexparser, which it
+    writes without braces."""
+    if not any(isinstance(_value, Macro) for _value in entry.values()):
+        return entry
+    return {_key: BibDataString(None, _value) if isinstance(_value, Macro)
+            else _value for _key, _value in entry.items()}
+
 def get_bib_writer(order_entries_by=(KEY_ID,)):
     writer = BibTexWriter()
     writer.order_entries_by = order_entries_by
@@ -241,7 +254,7 @@ def get_bib_writer(order_entries_by=(KEY_ID,)):
 def format_bib_entries(entries, order_entries_by=(KEY_ID,)):
     """Return the content of a bib file with the given entries."""
     clean_database = BibDatabase()
-    clean_database.entries = entries
+    clean_database.entries = [_for_writer(_entry) for _entry in entries]
     return get_bib_writer(order_entries_by).write(clean_database)
 
 def write_bib_database(entries, out_file, encoding="utf-8",
