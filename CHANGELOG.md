@@ -125,11 +125,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   functions by `remove_duplicates` and `interactive` (both default `False`).
 
 ### Fixed
-- Protecting the acronyms of titles no longer puts braces around a single
-  letter at the start of the title or of a subtitle after a colon, e.g., the
-  `A` of `Theory: A Study`, since styles keep it. Acronyms with hyphens get
-  one pair of braces, e.g., `{A-BC}` and `{COVID-19}` instead of `{A}-{BC}`
-  and `{COVID}-{19}`.
+- Protecting the acronyms of titles puts one pair of braces around
+  acronyms with hyphens, e.g., `{A-BC}` and `{COVID-19}` instead of
+  `{A}-{BC}` and `{COVID}-{19}`.
 - Web app: a bare value, e.g., `month = aug`, is marked as changed from the
   same text in braces, `{aug}`, since BibTeX reads them differently.
 - Web app: in short windows, e.g., a zoomed in browser, the settings scroll
