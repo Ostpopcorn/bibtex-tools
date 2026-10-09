@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add `core.titles.protect_title` with three ways to protect titles: keep
   them (`keep`), braces around acronyms (`acronyms`), or braces around the
   whole title (`whole`).
+- Web app: a fold button in the top bar, which folds the runs of unchanged
+  entries in both panes, so that you see only what changes. An entry is
+  unchanged if nothing in it is highlighted: its key, type, and fields are
+  the same. Possible duplicates and removed entries are always shown. A click
+  on a fold shows its entries, and the search finds the folded entries too.
+  The number of changed entries above the preview counts the same entries,
+  now also those with only a new type.
 - Web app: a fuzzy search in both panes at once, in the top bar (Ctrl+F). It
   finds the entries with all the words of the query in any order, as a part
   of a word or with a typo, without regard to case, accents, and LaTeX, e.g.,

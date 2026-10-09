@@ -13,6 +13,7 @@ const ARXIV_CONSENT_KEY = "bibtextools.arxiv-allowed.v1";
 const THEME_KEY = "bibtextools.theme";
 const SIDEBAR_KEY = "bibtextools.sidebar-hidden.v1";
 const SEARCH_FILTER_KEY = "bibtextools.search-only-matches.v1";
+const FOLD_KEY = "bibtextools.fold.v1";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
 const ARXIV_STYLES = ["keep", "eprint", "journal"];
 const TITLE_MODES = ["keep", "acronyms", "whole"];
@@ -103,6 +104,8 @@ const state = {
   error: null,
   selected: null,
   linkScroll: true,
+  fold: loadJson(FOLD_KEY, false) === true, // fold the unchanged entries
+  unfolded: new Set(),  // origins of the entries that you unfolded
   lastPane: "preview",
 };
 
@@ -117,7 +120,7 @@ function makePane(el) {
   });
   el.append(padTop, content, padBottom, empty);
   return { el, content, padTop, padBottom, empty, top: 0, bottom: 0, all: [], allByOrigin: new Map(),
-           entries: [], byOrigin: new Map(), last: 0, expected: null, link: null };
+           entries: [], byOrigin: new Map(), folds: [], last: 0, expected: null, link: null };
 }
 
 const panes = {
@@ -627,6 +630,7 @@ async function readFiles(files) {
 function setSources(sources) {
   state.sources = sources;
   state.decisions.clear();
+  state.unfolded.clear();
   state.response = null;
   state.error = null;
   state.selected = null;
@@ -961,6 +965,7 @@ function badge(kind, text, attrs = "") {
 function renderOriginal(outByOrigin, unresolved) {
   const r = state.response;
   const parts = [];
+  panes.original.folds = [];
   state.sources.forEach((source, sourceIdx) => {
     const lines = splitLines(source.text);
     const combined = state.sources.length > 1;
@@ -968,12 +973,14 @@ function renderOriginal(outByOrigin, unresolved) {
       parts.push(`<section class="src">`,
         sourceHead(source.name, ` title="Go to the start of ${escapeHtml(source.name)}"`));
     }
+    // The folds end with the file
+    const folder = makeFolder(parts, panes.original.folds);
     const entries = r ? r.sources[sourceIdx].entries : [];
     let next = 0;
     for (const entry of entries) {
       const [first, last] = entry.lines;
       if (first < next) continue;
-      for (let i = next; i < first; i++) parts.push(lineHtml(i + 1, lines[i]));
+      for (let i = next; i < first; i++) folder.line(lineHtml(i + 1, lines[i]));
       const out = entry.origin && outByOrigin.get(entry.origin);
       const removed = entry.origin && r.removed[entry.origin];
       let cls = "entry";
@@ -1002,14 +1009,16 @@ function renderOriginal(outByOrigin, unresolved) {
         if (out.id_changed || out.type_changed) lineCls[0] = "chg";
       }
       if (entry.origin === state.selected) cls += " selected";
-      parts.push(`<div class="${cls}" data-origin="${entry.origin || ""}">`);
+      const html = [`<div class="${cls}" data-origin="${entry.origin || ""}">`];
       for (let i = first; i <= last; i++) {
-        parts.push(lineHtml(i + 1, lines[i] ?? "", lineCls[i - first], i === first ? label : ""));
+        html.push(lineHtml(i + 1, lines[i] ?? "", lineCls[i - first], i === first ? label : ""));
       }
-      parts.push("</div>");
+      html.push("</div>");
+      folder.entry(html.join(""), out && !removed && isFolded(out, unresolved) ? entry.origin : null);
       next = last + 1;
     }
-    for (let i = next; i < lines.length; i++) parts.push(lineHtml(i + 1, lines[i]));
+    for (let i = next; i < lines.length; i++) folder.line(lineHtml(i + 1, lines[i]));
+    folder.close();
     if (combined) parts.push("</section>");
   });
   panes.original.content.innerHTML = parts.join("");
@@ -1033,6 +1042,8 @@ function renderPreview(unresolved) {
     return;
   }
   const parts = [];
+  panes.preview.folds = [];
+  const folder = makeFolder(parts, panes.preview.folds);
   let line = 1;
   previewEntries(r).forEach((out, idx) => {
     const lines = out.text.split("\n");
@@ -1052,12 +1063,14 @@ function renderPreview(unresolved) {
     if (out.aliases.length) label += badge("chg", `also cited as ${out.aliases.join(", ")}`);
     if (out.id_changed || out.type_changed) lineCls[0] = "chg";
     if (out.origin === state.selected) cls += " selected";
-    parts.push(`<div class="${cls}" data-origin="${out.origin}">`);
-    lines.forEach((text, i) => parts.push(lineHtml(line + i, text, lineCls[i], i === 0 ? label : "")));
-    parts.push("</div>");
-    if (idx < r.entries.length - 1) parts.push(lineHtml(line + lines.length, ""));
+    const html = [`<div class="${cls}" data-origin="${out.origin}">`];
+    lines.forEach((text, i) => html.push(lineHtml(line + i, text, lineCls[i], i === 0 ? label : "")));
+    html.push("</div>");
+    folder.entry(html.join(""), isFolded(out, unresolved) ? out.origin : null);
+    if (idx < r.entries.length - 1) folder.line(lineHtml(line + lines.length, ""));
     line += lines.length + 1;
   });
+  folder.close();
   if (!r.entries.length) {
     parts.push(`<div class="l"><span class="n"></span><span class="t muted">No entries left with these settings.</span></div>`);
   }
@@ -1065,11 +1078,12 @@ function renderPreview(unresolved) {
 }
 
 // The entries of a pane, and the shown ones: while searching, only the
-// entries that match
+// entries that match, and otherwise the entries that are not folded
 function indexPane(pane) {
   pane.all = $$(".entry", pane.el).filter((el) => el.dataset.origin);
   pane.allByOrigin = new Map(pane.all.map((el) => [el.dataset.origin, el]));
-  pane.entries = search.filter ? pane.all.filter((el) => search.filter.has(el.dataset.origin)) : pane.all;
+  pane.entries = pane.all.filter(search.filter ? (el) => search.filter.has(el.dataset.origin)
+    : (el) => !el.parentElement.classList.contains("folded"));
   pane.byOrigin = new Map(pane.entries.map((el) => [el.dataset.origin, el]));
   pane.link = null;
 }
@@ -1123,7 +1137,7 @@ function renderMeta() {
     $("#preview-meta").textContent = "";
     return;
   }
-  const changed = r.entries.filter((e) => e.id_changed || e.added.length || e.changed.length || e.removed.length).length;
+  const changed = r.entries.filter(isChanged).length;
   const removed = Object.keys(r.removed).length;
   $("#preview-meta").textContent = [
     plural(r.entries.length, "entry", "entries"),
@@ -1200,6 +1214,88 @@ function renderReview() {
   badge.title = `${plural(left, "pair")} of duplicates left to review`;
 }
 
+/* Folding */
+
+// Runs of unchanged entries are folded in both panes, so that you see what
+// changed. Each pane folds the runs in its own order. The folded entries are
+// still there, hidden, so that the search finds them.
+
+const UNFOLD_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-6"/><path d="M12 8V2"/><path d="M4 12H2"/><path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/><path d="m15 19-3 3-3-3"/><path d="m15 5-3-3-3 3"/></svg>`;
+
+// Whether an entry of the output differs from its original in what the panes
+// highlight: its key, its type, or its fields. A new format, e.g., another
+// order of the fields, does not count.
+function isChanged(out) {
+  return Boolean(out.id_changed || out.type_changed || out.aliases.length ||
+    out.added.length || out.changed.length || out.removed.length);
+}
+
+// Possible duplicates are never folded, since you have to choose one of them
+function isFolded(out, unresolved) {
+  return state.fold && !isChanged(out) && !unresolved.has(out.origin) && !state.unfolded.has(out.origin);
+}
+
+// Adds the entries and the lines between them to the HTML of a pane, with a
+// fold in place of each run of folded entries, followed by the hidden run.
+// The lines between two folded entries are folded with them.
+function makeFolder(parts, folds) {
+  let run = null;   // {html, origins} of the run of folded entries
+  let after = [];   // the lines after the run, until the next entry
+  const close = () => {
+    if (run) {
+      const text = plural(run.origins.length, "unchanged entry", "unchanged entries");
+      parts.push(`<div class="l fold" role="button" tabindex="0" data-fold="${folds.length}" title="Show the ${text}">` +
+        `<span class="n">${UNFOLD_ICON}</span><span class="t">${text}</span></div>`,
+        `<div class="folded">${run.html.join("")}</div>`);
+      folds.push(run.origins);
+      run = null;
+    }
+    parts.push(after.join(""));
+    after = [];
+  };
+  return {
+    line: (html) => (run ? after : parts).push(html),
+    // `origin` is the origin of a folded entry, or null for a shown entry
+    entry(html, origin) {
+      if (!origin) {
+        close();
+        parts.push(html);
+        return;
+      }
+      run = run || { html: [], origins: [] };
+      run.html.push(...after, html);
+      run.origins.push(origin);
+      after = [];
+    },
+    close,
+  };
+}
+
+// Show the entries of a fold in both panes, until folding is switched on again
+function unfold(name, idx) {
+  for (const origin of panes[name].folds[idx] || []) state.unfolded.add(origin);
+  state.lastPane = name;
+  render();
+}
+
+function renderFold() {
+  const button = $("#fold");
+  button.setAttribute("aria-pressed", String(state.fold));
+  button.title = state.fold
+    ? "Unchanged entries are folded. Click to show all entries."
+    : "Fold the unchanged entries, to see only what changed.";
+}
+
+// Folding again folds the entries that you unfolded too
+$("#fold").addEventListener("click", () => {
+  state.fold = !state.fold;
+  saveJson(FOLD_KEY, state.fold);
+  state.unfolded.clear();
+  renderFold();
+  render();
+});
+renderFold();
+
 /* Selection and linked scrolling */
 
 const other = (name) => (name === "original" ? "preview" : "original");
@@ -1230,7 +1326,10 @@ function captureAnchor(pane) {
 
 function restoreAnchor(pane, anchor) {
   const el = anchor.origin && pane.byOrigin.get(anchor.origin);
-  setScroll(pane, el ? el.offsetTop + anchor.offset : anchor.offset);
+  // A folded entry is in the place of its fold
+  const group = el || search.filter ? null : pane.allByOrigin.get(anchor.origin)?.parentElement;
+  if (group?.classList.contains("folded")) setScroll(pane, group.previousElementSibling.offsetTop);
+  else setScroll(pane, el ? el.offsetTop + anchor.offset : anchor.offset);
 }
 
 /* Positions without the blank space above the content ("view") */
@@ -1427,6 +1526,11 @@ for (const name of ["original", "preview"]) {
     if (state.linkScroll) follow(pane, panes[other(name)], previous);
   }, { passive: true });
   pane.el.addEventListener("click", (event) => {
+    const fold = event.target.closest(".fold");
+    if (fold) {
+      unfold(name, Number(fold.dataset.fold));
+      return;
+    }
     const head = event.target.closest(".src > .src-head");
     if (head) {
       pane.el.scrollTop = head.parentElement.offsetTop;
@@ -1440,6 +1544,17 @@ for (const name of ["original", "preview"]) {
     const entry = event.target.closest(".entry");
     if (!entry || !entry.dataset.origin || !window.getSelection().isCollapsed) return;
     select(entry.dataset.origin, name);
+  });
+}
+
+// A fold is unfolded with Enter or Space too
+for (const name of ["original", "preview"]) {
+  panes[name].el.addEventListener("keydown", (event) => {
+    const fold = event.target.closest(".fold");
+    if (!fold || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    unfold(name, Number(fold.dataset.fold));
+    panes[name].el.focus({ preventScroll: true });
   });
 }
 
@@ -1622,6 +1737,11 @@ function showMatch() {
 function revealEntry(origin) {
   const from = panes.original;
   const to = panes.preview;
+  // A folded entry is unfolded, e.g., a match while all entries are shown
+  if (!search.filter && !from.byOrigin.has(origin) && from.allByOrigin.has(origin)) {
+    state.unfolded.add(origin);
+    render();
+  }
   const el = from.byOrigin.get(origin);
   if (!el) return;
   state.selected = origin;
