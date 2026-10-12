@@ -8,6 +8,9 @@ from bibtextools.core.keys import generate_key, rename_duplicate_keys
 from bibtextools.core.titles import (TITLE_ACRONYMS, TITLE_KEEP, TITLE_WHOLE,
                                      is_wrapped, protect_title,
                                      protect_title_in_entry)
+from bibtextools.core.venues import (remove_conference_abbr,
+                                     sort_by_conference_abbr,
+                                     split_conference_abbr)
 from bibtextools.util import Macro, format_bib_entries, read_bib_string
 
 
@@ -198,3 +201,51 @@ def _as_type(entry, entry_type, **fields):
 def test_duplicate_papers_of_different_types(other, duplicate):
     pairs = get_duplicate_index_pairs([_PAPER, other])
     assert pairs == ([(0, 1)] if duplicate else [])
+
+
+@pytest.mark.parametrize("name,without,abbr", [
+    ("Advances in Neural Information Processing Systems (NeurIPS)",
+     "Advances in Neural Information Processing Systems", "NeurIPS"),
+    ("Proc. IEEE Int. Conf. Commun. (ICC 2020)", "Proc. IEEE Int. Conf. Commun.",
+     "ICC"),
+    ("Proc. CVPR (CVPR'20)", "Proc. CVPR", "CVPR"),
+    ("Proc. SIGCOMM (SIGCOMM '19)", "Proc. SIGCOMM", "SIGCOMM"),
+    ("Proc. ICASSP ({ICASSP})", "Proc. ICASSP", "ICASSP"),
+    ("Proc. (SysML)", "Proc.", "SysML"),
+    ("Proc. (EMNLP-IJCNLP) ", "Proc.", "EMNLP-IJCNLP"),
+    # braces around the whole name are kept
+    ("{Advances in NIPS (NeurIPS)}", "{Advances in NIPS}", "NeurIPS"),
+    # not abbreviations
+    ("Proceedings (Part 1)", "Proceedings (Part 1)", None),
+    ("Proceedings (Volume 2)", "Proceedings (Volume 2)", None),
+    ("Proceedings (Short Papers)", "Proceedings (Short Papers)", None),
+    ("Proceedings (Workshops)", "Proceedings (Workshops)", None),
+    ("Name (IEEE ICC)", "Name (IEEE ICC)", None),
+    ("(ICML) Proceedings", "(ICML) Proceedings", None),
+    ("Proceedings", "Proceedings", None),
+])
+def test_split_conference_abbr(name, without, abbr):
+    assert split_conference_abbr(name) == (without, abbr)
+
+def test_remove_conference_abbr():
+    entry = {"ENTRYTYPE": "inproceedings", "booktitle": "Proc. (ICC 2020)",
+             "eventtitle": "Conference (ICC)", "title": "A Study (ABC)"}
+    assert remove_conference_abbr(entry) == {
+        "ENTRYTYPE": "inproceedings", "booktitle": "Proc.",
+        "eventtitle": "Conference", "title": "A Study (ABC)"}
+    # only conference papers and proceedings
+    entry = {"ENTRYTYPE": "incollection", "booktitle": "Book (ABC)"}
+    assert remove_conference_abbr(dict(entry)) == entry
+
+def test_sort_by_conference_abbr():
+    entries = [{"ENTRYTYPE": "inproceedings", "booktitle": "Conf. (ABC)"},
+               {"ENTRYTYPE": "article", "journal": "Journal (JJ)"},
+               {"ENTRYTYPE": "inproceedings", "booktitle": "Conf."},
+               # an abbreviation in eventtitle counts too
+               {"ENTRYTYPE": "inproceedings", "booktitle": "PMLR",
+                "eventtitle": "Conference (ICML)"},
+               {"ENTRYTYPE": "proceedings", "eventtitle": "Workshop"},
+               {"ENTRYTYPE": "inproceedings"}]
+    assert sort_by_conference_abbr(entries) == (
+        [(0, "Conf. (ABC)", "ABC"), (3, "Conference (ICML)", "ICML")],
+        [(2, "Conf.", None), (4, "Workshop", None)])

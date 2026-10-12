@@ -289,3 +289,13 @@ def test_remove_duplicates_with_resolver():
     ids = set(x[KEY_ID] for x in results)
     assert len(pairs) == 2 and len(results) == 7
     assert not ids & set(_id2 for _id1, _id2 in pairs)
+
+
+def test_conference_abbr_option():
+    text = "@inproceedings{a, title = {A}, booktitle = {Conf. (CoT 2020)}}\n"
+    run = lambda mode: pipeline.Pipeline().run(
+        [("a.bib", text)], pipeline.PipelineOptions(conference_abbr=mode))
+    assert "booktitle = {Conf. (CoT 2020)}" in run("keep").text
+    assert "booktitle = {Conf.}" in run("remove").text
+    with pytest.raises(ValueError):
+        run("shorten")

@@ -447,6 +447,26 @@ body:not(.settings-shown) .rail { display: block; }
   font-size: 12px;
 }
 .format-note svg { width: 13px; height: 13px; margin-top: 2px; color: var(--accent); }
+/* Some conference papers have an abbreviation of their conference, and
+   some do not. It opens the list of both. */
+.conf-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 4px;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--chg-bar) 55%, transparent);
+  border-radius: 7px;
+  background: var(--chg-bg);
+  color: var(--text);
+  font: 12px/1.45 var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+}
+.conf-warning:hover { border-color: var(--chg-bar); }
+.conf-warning:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.conf-warning svg { width: 13px; height: 13px; margin-top: 2px; color: var(--chg-bar); }
+.conf-warning-link { color: var(--accent); font-weight: 600; white-space: nowrap; }
 .online {
   flex: none;
   display: inline-flex;
@@ -909,6 +929,25 @@ svg.icon-fill { fill: currentColor; stroke: none; }
 .about-small { font-size: 12.5px; line-height: 1.55; color: var(--muted); }
 .dialog-foot .hint { color: var(--rm-text); }
 .confirm-dialog { width: min(520px, calc(100vw - 32px)); }
+.conf-dialog { width: min(900px, calc(100vw - 32px)); }
+.conf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 0; padding: 0 20px; overflow: auto; }
+.conf-side { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.conf-side h3 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+.conf-list { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.conf-list p { margin: 0; }
+.conf-venue { font-size: 13px; }
+.conf-keys { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px !important; }
+.conf-key {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 12px var(--code-font);
+  cursor: pointer;
+}
+.conf-key:hover { border-color: var(--accent); color: var(--accent); }
+.conf-key:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .confirm-body { display: flex; flex-direction: column; gap: 10px; padding: 6px 20px 0; font-size: 13.5px; line-height: 1.55; }
 .confirm-body p { margin: 0; }
 .confirm-body code { font-size: 12.5px; }
@@ -994,7 +1033,7 @@ svg.icon-fill { fill: currentColor; stroke: none; }
 @media (max-width: 700px) {
   .actions .btn:not(.primary):not(.icon-btn) { padding: 0 8px; }
   #share { display: none; }
-  .dup-grid { grid-template-columns: 1fr; }
+  .dup-grid, .conf-grid { grid-template-columns: 1fr; }
   .pane-head { flex-wrap: wrap; row-gap: 4px; }
   .drop-card { padding: 32px 20px; }
   .drop-actions { flex-direction: column; }

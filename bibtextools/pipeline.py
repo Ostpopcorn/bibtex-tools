@@ -38,6 +38,8 @@ from .core.journals import abbreviate_journalname
 from .core.keys import generate_key_in_entry, rename_duplicate_keys
 from .core.latex import replace_unicode_in_entry
 from .core.titles import TITLE_KEEP, protect_title_in_entry
+from .core.venues import (CONF_ABBR_KEEP, CONF_ABBR_MODES, CONF_ABBR_REMOVE,
+                          remove_conference_abbr)
 from .util import format_bib_entries, read_bib_string
 
 #: The output is for biblatex (with biber) or for BibTeX
@@ -74,6 +76,9 @@ class PipelineOptions:
     clean_fields: tuple = ()
     #: How titles are protected, one of `core.titles.TITLE_MODES`
     titles: str = TITLE_KEEP
+    #: What happens to the abbreviations of conferences, e.g., `(NeurIPS)`,
+    #: one of `core.venues.CONF_ABBR_MODES`
+    conference_abbr: str = CONF_ABBR_KEEP
     #: How arXiv preprints are written, one of `core.arxiv.ARXIV_STYLES`, or
     #: None to keep them as they are
     arxiv_style: Optional[str] = None
@@ -119,6 +124,11 @@ def entry_steps(options, generate_keys=None):
     if options.titles != TITLE_KEEP:
         steps.append(functools.partial(protect_title_in_entry,
                                        mode=options.titles))
+    if options.conference_abbr not in CONF_ABBR_MODES:
+        raise ValueError("Unknown mode for the abbreviations of conferences: "
+                         "{}".format(options.conference_abbr))
+    if options.conference_abbr == CONF_ABBR_REMOVE:
+        steps.append(remove_conference_abbr)
     if options.arxiv_style is not None:
         steps.append(functools.partial(convert_arxiv_style,
                                        style=options.arxiv_style))

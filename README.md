@@ -24,8 +24,11 @@ all the work.  It was made by Ostpopcorn, and its code is in
 
 * Every setting works on its own and is in the settings on the left: keep
   only the entries cited in your `.bbl` file, expand `@string` abbreviations,
-  duplicate entries, cleaning of fields, titles, ISO 4 journal names, unicode
-  to LaTeX, arXiv preprints, keys, and removing fields.  Choose whether the
+  duplicate entries, cleaning of fields, titles, abbreviations of
+  conferences, e.g., `(NeurIPS)`, ISO 4 journal names, unicode to LaTeX, arXiv
+  preprints, keys, and removing fields.  If some conference papers have an
+  abbreviation of their conference and some do not, a warning lists both.
+  Choose whether the
   output is for biblatex or BibTeX: in BibTeX mode, the settings that BibTeX
   styles cannot use are off, and a `.bbl` file sets the mode.  Fields can be
   converted to the names of biblatex or BibTeX, e.g., `journaltitle` and

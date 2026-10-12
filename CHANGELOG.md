@@ -47,6 +47,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add `core.titles.protect_title` with three ways to protect titles: keep
   them (`keep`), braces around acronyms (`acronyms`), or braces around the
   whole title (`whole`).
+- Add `core.venues`, for the abbreviations of conferences in parentheses at
+  the end of `booktitle` and `eventtitle`, e.g., `Advances in Neural
+  Information Processing Systems (NeurIPS)`, also with a year, e.g.,
+  `(ICC 2020)`. `remove_conference_abbr` removes them from conference papers
+  and proceedings, and `sort_by_conference_abbr` sorts the entries into those
+  with and without one. `(Part 1)` and `(Workshops)` are not abbreviations.
+  `PipelineOptions.conference_abbr` is `"keep"` or `"remove"`.
+- Web app: a switch for the abbreviations of conferences, Keep or Remove. If
+  some conference papers of the output have one and some do not, a warning
+  above the switch opens a list of both, side by side, where a click on a
+  key shows its entry.
 - Web app: _Reset all settings_ at the end of the settings, which asks
   first. The files stay open, and a loaded `.bbl` or abbreviation file is
   used again.

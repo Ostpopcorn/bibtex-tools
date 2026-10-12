@@ -17,6 +17,7 @@ const FOLD_KEY = "bibtextools.fold.v1";
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
 const ARXIV_STYLES = ["keep", "eprint", "journal"];
 const TITLE_MODES = ["keep", "acronyms", "whole"];
+const CONF_ABBR_MODES = ["keep", "remove"];
 const FORMATS = ["biblatex", "bibtex"];
 const FORMAT_NAMES = { biblatex: "biblatex", bibtex: "BibTeX" };
 // Settings that BibTeX styles cannot use, with the reason shown on hover. In
@@ -59,6 +60,10 @@ const MONTHS = {
       "A month in braces is printed as it is, e.g., “aug”.",
   },
 };
+const CONF_ABBR_HINTS = {
+  keep: "The names of conferences stay as they are.",
+  remove: "E.g., <code>…Processing Systems (NeurIPS)</code> → <code>…Processing Systems</code>, in <code>booktitle</code> and <code>eventtitle</code>.",
+};
 const TITLE_HINTS = {
   keep: "Titles stay as they are in your files.",
   acronyms: "Braces around acronyms, e.g., <code>The {IEEE} Standard</code>, so that styles keep their case.",
@@ -78,7 +83,7 @@ const DEFAULT_SETTINGS = {
   cited: { enabled: false },   // keep only the entries cited in the .bbl file
   strings: { enabled: false }, // expand the @string abbreviations
   duplicates: { mode: "choose" },
-  fields: { convert: false, clean: null, titles: "whole", iso4: false, unicode: false },
+  fields: { convert: false, clean: null, titles: "whole", conferenceAbbr: "keep", iso4: false, unicode: false },
   arxiv: { style: "keep", lookup: false },
   keys: { rename: true, generate: false },
   remove: { fields: null },
@@ -188,6 +193,9 @@ function validSettings(settings) {
   if (!TITLE_MODES.includes(settings.fields.titles)) {
     settings.fields.titles = DEFAULT_SETTINGS.fields.titles;
   }
+  if (!CONF_ABBR_MODES.includes(settings.fields.conferenceAbbr)) {
+    settings.fields.conferenceAbbr = DEFAULT_SETTINGS.fields.conferenceAbbr;
+  }
   if (!FORMATS.includes(settings.format)) settings.format = DEFAULT_SETTINGS.format;
   return settings;
 }
@@ -208,6 +216,7 @@ function fromV2(stored) {
       convert: false,
       clean: !on ? [] : modern.fields === null ? null : fields.filter((f) => f !== "title"),
       titles: !titles ? "keep" : modern.shield ? "whole" : "acronyms",
+      conferenceAbbr: "keep",
       iso4: on && modern.iso4,
       unicode: old.clean.enabled && old.clean.unicode,
     },
@@ -356,6 +365,7 @@ function buildRequest() {
     options: {
       clean_fields: cleanFields(s),
       titles: s.fields.titles,
+      conference_abbr: s.fields.conferenceAbbr,
       iso4: s.fields.iso4,
       replace_unicode: s.fields.unicode,
       arxiv: s.arxiv.lookup,
@@ -418,7 +428,8 @@ function applySettingsToUI() {
   for (const input of $$("[data-field]")) {
     input.checked = cleanFields(s).includes(input.dataset.field);
   }
-  const radios = { format: s.format, duplicates: s.duplicates.mode, "arxiv-style": s.arxiv.style, titles: s.fields.titles };
+  const radios = { format: s.format, duplicates: s.duplicates.mode, "arxiv-style": s.arxiv.style, titles: s.fields.titles,
+                   "conf-abbr": s.fields.conferenceAbbr };
   for (const [name, value] of Object.entries(radios)) {
     for (const input of $$(`input[name=${name}]`)) input.checked = input.value === value;
   }
@@ -439,6 +450,7 @@ function applySettingsToUI() {
   hint.innerHTML = ARXIV_STYLE_HINTS[s.arxiv.style];
   hint.hidden = !hint.innerHTML;
   $("#titles-hint").innerHTML = TITLE_HINTS[s.fields.titles];
+  $("#conf-abbr-hint").innerHTML = CONF_ABBR_HINTS[s.fields.conferenceAbbr];
   // New keys would break the citations of the .bbl file
   const filtering = s.cited.enabled && Boolean(state.bbl);
   setAvailable($("[data-setting='keys.generate']"),
@@ -501,6 +513,8 @@ $("#options").addEventListener("change", (event) => {
     state.settings.arxiv.style = input.value;
   } else if (input.name === "titles") {
     state.settings.fields.titles = input.value;
+  } else if (input.name === "conf-abbr") {
+    state.settings.fields.conferenceAbbr = input.value;
   } else if (input.name === "format") {
     state.settings.format = input.value;
   } else {
@@ -637,6 +651,63 @@ $("#remove-tags").addEventListener("click", (event) => {
   if (event.target.id === "remove-tags") $("#remove-input").focus();
 });
 $("#remove-reset").addEventListener("click", () => setRemoveFields(null));
+
+/* Abbreviations of conferences */
+
+// A warning above the switch when some conference papers of the output have
+// an abbreviation of their conference, e.g., (NeurIPS), and some do not. It
+// opens a list of both.
+const confDialog = $("#conf-dialog");
+
+function conferenceGroups() {
+  const groups = state.response?.conference_abbrs;
+  return groups && groups.with.length && groups.without.length ? groups : null;
+}
+
+const countEntries = (groups) => groups.reduce((sum, group) => sum + group.entries.length, 0);
+
+function renderConferences() {
+  const groups = conferenceGroups();
+  $("#conf-warning").hidden = !groups;
+  if (!groups) {
+    if (confDialog.open) confDialog.close();
+    return;
+  }
+  const withCount = countEntries(groups.with);
+  const withoutCount = countEntries(groups.without);
+  $("#conf-warning-text").textContent = `${plural(withCount, "conference paper")} ` +
+    `${withCount === 1 ? "has" : "have"} an abbreviation, e.g., (${groups.with[0].abbr}), and ${withoutCount} ` +
+    `${withoutCount === 1 ? "does" : "do"} not.`;
+  $("#conf-with-title").textContent = `With an abbreviation (${withCount})`;
+  $("#conf-without-title").textContent = `Without (${withoutCount})`;
+  for (const [id, list] of [["#conf-with", groups.with], ["#conf-without", groups.without]]) {
+    $(id).replaceChildren(...list.map((group) => {
+      const item = document.createElement("li");
+      const venue = Object.assign(document.createElement("p"), { className: "conf-venue", textContent: group.venue });
+      const keys = Object.assign(document.createElement("p"), { className: "conf-keys" });
+      keys.append(...group.entries.map((entry) => {
+        const button = Object.assign(document.createElement("button"), {
+          type: "button", className: "conf-key", textContent: entry.id, title: "Show this entry",
+        });
+        button.dataset.origin = entry.origin;
+        return button;
+      }));
+      item.append(venue, keys);
+      return item;
+    }));
+  }
+}
+
+$("#conf-warning").addEventListener("click", () => confDialog.showModal());
+confDialog.addEventListener("click", (event) => {
+  const key = event.target.closest(".conf-key");
+  if (key) {
+    confDialog.close();
+    revealEntry(key.dataset.origin);
+    return;
+  }
+  if (event.target === confDialog || event.target.closest("[data-dialog-close]")) confDialog.close();
+});
 
 /* Reset all settings */
 
@@ -1157,6 +1228,7 @@ function render() {
   renderMeta();
   renderStatus();
   renderArxivState();
+  renderConferences();
   if (dialog.open) renderDuplicate();
 }
 
@@ -2104,6 +2176,7 @@ const LINK_SETTINGS = {
   duplicates: "duplicates.mode",
   cleanup: "fields.clean",
   titles: "fields.titles",
+  conferences: "fields.conferenceAbbr",
   iso4: "fields.iso4",
   latex: "fields.unicode",
   preprints: "arxiv.style",

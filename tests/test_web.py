@@ -143,6 +143,24 @@ def test_run_months_for_the_output(output, expected):
         # `aug` and `{aug}` differ, but `nov` and `nov` do not
         assert out["changed"] == changed
 
+def test_run_conference_abbrs():
+    text = ("@inproceedings{a, booktitle = {Conf. on Things (CoT)}}\n"
+            "@inproceedings{b, booktitle = {Conf. on Things}}\n"
+            "@inproceedings{c, booktitle = {Conf. on Things}}\n"
+            "@article{d, journal = {Journal (JJ)}}\n")
+    response = _run_text(text)
+    groups = response["conference_abbrs"]
+    assert groups["with"] == [{"venue": "Conf. on Things (CoT)", "abbr": "CoT",
+                               "entries": [{"id": "a", "origin": "0:0"}]}]
+    assert groups["without"] == [{"venue": "Conf. on Things", "abbr": None,
+                                  "entries": [{"id": "b", "origin": "0:1"},
+                                              {"id": "c", "origin": "0:2"}]}]
+    response = _run_text(text, {"conference_abbr": "remove"})
+    groups = response["conference_abbrs"]
+    assert groups["with"] == [] and len(groups["without"][0]["entries"]) == 3
+    assert [e["changed"] for e in response["entries"]] == [["booktitle"], [],
+                                                            [], []]
+
 def test_run_arxiv_style():
     request = {"sources": [_source("arxiv.bib")],
                "options": {"arxiv_style": "eprint", "arxiv": True}}

@@ -12,6 +12,7 @@ from .core.arxiv import convert_arxiv_style
 from .core.cited import parse_bbl_keys
 from .core.fields import FIELD_CLEANERS
 from .core.titles import TITLE_KEEP
+from .core.venues import CONF_ABBR_KEEP, sort_by_conference_abbr
 from .pipeline import DUPLICATES_KEEP, Pipeline, PipelineOptions
 from .util import (format_bib_entries, get_entry_spans, get_field_spans,
                    parse_abbr_string)
@@ -125,6 +126,24 @@ def _output_entry(out, original, located):
             "fields": {k: v["lines"] for k, v in fields.items()}}
 
 
+def _conference_groups(entries):
+    """The conference papers and proceedings of the output, with and
+    without an abbreviation of their conference, e.g., `(NeurIPS)`, each
+    grouped by the name of the conference."""
+    with_abbr, without_abbr = sort_by_conference_abbr(
+        [_out.entry for _out in entries])
+    def _groups(items):
+        groups = {}
+        for _idx, _venue, _abbr in items:
+            _venue = " ".join(_venue.split())
+            _group = groups.setdefault(_venue, {"venue": _venue, "abbr": _abbr,
+                                                "entries": []})
+            _group["entries"].append({"id": entries[_idx].entry[KEY_ID],
+                                      "origin": _origin_str(entries[_idx].origin)})
+        return sorted(groups.values(), key=lambda _group: _group["venue"].lower())
+    return {"with": _groups(with_abbr), "without": _groups(without_abbr)}
+
+
 def run(request_json):
     """Run the pipeline for a request of the web app, see `web/app.js`."""
     return json.dumps(_run(json.loads(request_json)))
@@ -154,6 +173,7 @@ def _run(request):
         duplicate_decisions=decisions,
         clean_fields=tuple(opts.get("clean_fields", ())),
         titles=opts.get("titles", TITLE_KEEP),
+        conference_abbr=opts.get("conference_abbr", CONF_ABBR_KEEP),
         arxiv=opts.get("arxiv", False),
         arxiv_lookup=lambda eprint: categories.get(normalize_eprint(eprint)),
         arxiv_style=opts.get("arxiv_style"),
@@ -222,6 +242,7 @@ def _run(request):
         "undefined_strings": sorted(set(
             _name for _names in result.undefined_strings.values()
             for _name in _names)),
+        "conference_abbrs": _conference_groups(result.entries),
         "messages": [[{10: "debug", 20: "info", 30: "warning"}.get(_level, "error"),
                       _msg] for _level, _msg in result.messages],
     }

@@ -239,6 +239,18 @@
             </div>
           </div>
           <p class="hint" id="titles-hint"></p>
+          <button class="conf-warning" id="conf-warning" type="button" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18h.01"/></svg>
+            <span><span id="conf-warning-text"></span> <span class="conf-warning-link">Show them</span></span>
+          </button>
+          <div class="option-row">
+            <span class="option-label" id="conf-abbr-label">Conference abbreviations</span>
+            <div class="segmented" role="radiogroup" aria-labelledby="conf-abbr-label">
+              <label title="Keep the abbreviations of conferences"><input type="radio" name="conf-abbr" value="keep"><span>Keep</span></label>
+              <label title="Remove the abbreviations of conferences, e.g., (NeurIPS)"><input type="radio" name="conf-abbr" value="remove"><span>Remove</span></label>
+            </div>
+          </div>
+          <p class="hint" id="conf-abbr-hint"></p>
         </section>
 
         <section class="sec" aria-labelledby="sec-arxiv">
@@ -436,6 +448,29 @@
       <span class="spacer"></span>
       <button class="btn" data-dialog-close>Cancel</button>
       <button class="btn primary" id="arxiv-allow">Look up categories</button>
+    </footer>
+  </dialog>
+
+  <dialog class="dialog conf-dialog" id="conf-dialog" aria-labelledby="conf-title">
+    <header class="dialog-head">
+      <h2 id="conf-title">Conference abbreviations</h2>
+      <span class="spacer"></span>
+      <button class="btn ghost icon-btn" data-dialog-close aria-label="Close">×</button>
+    </header>
+    <p class="hint">Some conference papers have an abbreviation of their conference, e.g., <code>(NeurIPS)</code>, and some do not. Click a key to show its entry.</p>
+    <div class="conf-grid">
+      <section class="conf-side">
+        <h3 id="conf-with-title"></h3>
+        <ul class="conf-list" id="conf-with"></ul>
+      </section>
+      <section class="conf-side">
+        <h3 id="conf-without-title"></h3>
+        <ul class="conf-list" id="conf-without"></ul>
+      </section>
+    </div>
+    <footer class="dialog-foot">
+      <span class="spacer"></span>
+      <button class="btn" data-dialog-close>Close</button>
     </footer>
   </dialog>
 
