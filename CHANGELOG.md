@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 ### Added
+- Web app: the bib files, the `.bbl` file, and the abbreviations are at the
+  top of the panel on the left, which stands out from the settings below
+  them, with Upload and Paste for each. Share settings is at the end of the
+  settings, next to Reset all settings.
+- Web app: a switch in the top bar between the original, both side by side,
+  and the preview, like in TeX Tools, with the fold button next to it. A pane
+  that is shown again starts at the entry that was shown, or the next one
+  for a removed entry, and the view is remembered. The parts of the top bar
+  are spread evenly, and in smaller windows the search moves to a second row
+  first, and then the views show only their icons.
 - Add a web app, which runs all commands in the browser with a live preview
   of the result next to the original. It can be built with `web/build.py` and
   is published with GitHub Pages.

@@ -22,7 +22,11 @@ all the work.  It was made by Ostpopcorn, and its code is in
 
 ![Screenshot of the web app](web/screenshot.png)
 
-* Every setting works on its own and is in the settings on the left: keep
+* The panel on the left has your files at the top: the bib files, and the
+  `.bbl` file and the abbreviations of your document.  Upload, paste
+  (Ctrl+V), or drop them.  Multiple bib files are combined like with
+  `combine`.
+* Every setting works on its own and is in the settings below the files: keep
   only the entries cited in your `.bbl` file, expand `@string` abbreviations,
   duplicate entries, cleaning of fields, titles, abbreviations of
   conferences, e.g., `(NeurIPS)`, ISO 4 journal names, unicode to LaTeX, arXiv
@@ -32,10 +36,12 @@ all the work.  It was made by Ostpopcorn, and its code is in
   output is for biblatex or BibTeX: in BibTeX mode, the settings that BibTeX
   styles cannot use are off, and a `.bbl` file sets the mode.  Fields can be
   converted to the names of biblatex or BibTeX, e.g., `journaltitle` and
-  `journal`.  _Reset all settings_ at the end brings back the defaults.
-  Hide the settings to a bar on the left to give the files more room.  Open, drop, or paste
-  (Ctrl+V) bib files, `.bbl` files, and abbreviations.  Multiple bib files are
-  combined like with `combine`.
+  `journal`.  _Share settings_ at the end copies a link with your settings
+  (not your files) for your colleagues, and _Reset all settings_ brings back
+  the defaults.  Hide the panel to a bar on the left to give the files more
+  room.
+* Show the original, both side by side, or the preview, with the switch in
+  the top bar, like in TeX Tools.
 * Changed fields are highlighted on both sides, and removed fields and entries
   are marked in the original.  Click an entry to show it at the same height on
   the other side.  With the fold button, the unchanged entries are folded on
@@ -48,8 +54,6 @@ all the work.  It was made by Ostpopcorn, and its code is in
   on both sides.
 * Choose which entry of each pair of duplicate entries to remove, with the
   number of decided pairs.
-* _Share settings_ copies a link with your settings (not your files) for your
-  colleagues.
 
 The web app runs `bibtextools` in your browser with
 [Pyodide](https://pyodide.org), so your files never leave your computer.  Only

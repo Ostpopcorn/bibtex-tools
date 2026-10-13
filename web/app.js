@@ -14,6 +14,9 @@ const THEME_KEY = "bibtextools.theme";
 const SIDEBAR_KEY = "bibtextools.sidebar-hidden.v1";
 const SEARCH_FILTER_KEY = "bibtextools.search-only-matches.v1";
 const FOLD_KEY = "bibtextools.fold.v1";
+const VIEW_KEY = "bibtextools.view.v1";
+// The original, both side by side, or the preview, like in TeX Tools
+const VIEWS = ["original", "both", "preview"];
 const DUPLICATE_MODES = ["keep", "remove-shorter", "choose"];
 const ARXIV_STYLES = ["keep", "eprint", "journal"];
 const TITLE_MODES = ["keep", "acronyms", "whole"];
@@ -122,6 +125,7 @@ const state = {
   error: null,
   selected: null,
   linkScroll: true,
+  view: VIEWS.includes(loadJson(VIEW_KEY, "both")) ? loadJson(VIEW_KEY, "both") : "both",
   fold: loadJson(FOLD_KEY, false) === true, // fold the unchanged entries
   unfolded: new Set(),  // origins of the entries that you unfolded
   lastPane: "preview",
@@ -548,7 +552,7 @@ function renderLinkScroll() {
 $("#link-scroll").addEventListener("click", () => {
   state.linkScroll = !state.linkScroll;
   renderLinkScroll();
-  if (state.linkScroll) align(panes[state.lastPane], panes[other(state.lastPane)]);
+  if (linked()) align(panes[state.lastPane], panes[other(state.lastPane)]);
 });
 renderLinkScroll();
 
@@ -909,60 +913,27 @@ $("#example").addEventListener("click", async () => {
   setSources([{ name: "old.bib", text: await response.text() }]);
 });
 
+// The bib files at the top of the panel, with the number of their entries
 function renderFiles() {
-  const files = $("#files");
-  files.replaceChildren();
-  state.sources.forEach((source, idx) => {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    const count = state.response && state.response.sources[idx]
-      ? state.response.sources[idx].entries.length : null;
-    chip.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>`;
-    chip.append(source.name);
-    if (count !== null) {
-      const span = document.createElement("span");
-      span.className = "count";
-      span.textContent = `· ${count}`;
-      chip.append(span);
-    }
-    const button = document.createElement("button");
-    button.textContent = "×";
-    button.title = `Close ${source.name}`;
-    button.addEventListener("click", () => setSources(state.sources.filter((_, i) => i !== idx)));
-    chip.append(button);
-    files.append(chip);
-  });
+  $("#files").replaceChildren(...state.sources.map((source, idx) => {
+    const row = Object.assign(document.createElement("div"), { className: "file-field" });
+    row.innerHTML = FILE_ICON;
+    const count = state.response?.sources[idx]?.entries.length;
+    row.append(
+      Object.assign(document.createElement("span"), { className: "file-name", textContent: source.name, title: source.name }),
+      Object.assign(document.createElement("span"), {
+        className: "file-count", textContent: count === undefined ? "" : plural(count, "entry", "entries"),
+      }),
+      Object.assign(document.createElement("button"), {
+        className: "btn ghost tiny icon-btn", textContent: "×", title: `Close ${source.name}`,
+        onclick: () => setSources(state.sources.filter((_, i) => i !== idx)),
+      }),
+    );
+    return row;
+  }));
+  $("#files").hidden = !state.sources.length;
+  $("#files-sum").textContent = state.sources.length > 1 ? "combined" : "";
 }
-
-/* Menu to add another bib file */
-
-const addButton = $("#add-button");
-const addMenu = $("#add-menu");
-
-function setAddMenu(open) {
-  addMenu.hidden = !open;
-  addButton.setAttribute("aria-expanded", String(open));
-  if (open) $("button", addMenu).focus();
-}
-
-addButton.addEventListener("click", () => setAddMenu(addMenu.hidden));
-document.addEventListener("click", (event) => {
-  if (!addMenu.hidden && !event.target.closest("#add-wrap")) setAddMenu(false);
-});
-addMenu.addEventListener("click", (event) => {
-  if (event.target.closest("[data-pick], [data-paste]")) setAddMenu(false);
-});
-addMenu.addEventListener("keydown", (event) => {
-  const items = $$("[role=menuitem]", addMenu);
-  const idx = items.indexOf(document.activeElement);
-  if (event.key === "Escape") {
-    setAddMenu(false);
-    addButton.focus();
-  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-    event.preventDefault();
-    items[(idx + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
-  }
-});
 
 function keyChips(list, keys) {
   list.replaceChildren(...keys.map((key) => {
@@ -1211,7 +1182,7 @@ function render() {
   // The new content can change the scroll positions, which are not the user's
   for (const pane of Object.values(panes)) handled(pane);
   restoreAnchor(panes[state.lastPane], anchor);
-  if (state.linkScroll) align(panes[state.lastPane], panes[other(state.lastPane)]);
+  if (linked()) align(panes[state.lastPane], panes[other(state.lastPane)]);
 
   const overlay = $("#overlay");
   const waiting = state.sources.length && (!state.ready || !r);
@@ -1493,6 +1464,51 @@ function trimPads(pane) {
 const isVisible = (pane, el) =>
   viewOffset(pane, el) < pane.el.clientHeight && viewOffset(pane, el) + el.offsetHeight > 0;
 
+/* Views: the original, both side by side, or the preview */
+
+const linked = () => state.linkScroll && state.view === "both";
+
+// The entry of a pane for an entry, or else the next entry in the order of
+// the files that the pane has, e.g., for a removed entry in the preview
+function counterpart(pane, origin) {
+  if (pane.byOrigin.has(origin)) return pane.byOrigin.get(origin);
+  const order = panes.original.all.map((el) => el.dataset.origin);
+  for (const next of order.slice(order.indexOf(origin) + 1)) {
+    if (pane.byOrigin.has(next)) return pane.byOrigin.get(next);
+  }
+  return null;
+}
+
+function renderView() {
+  for (const view of VIEWS) document.body.classList.toggle(`view-${view}`, state.view === view);
+  for (const input of $$("#views input")) input.checked = input.value === state.view;
+  for (const pane of Object.values(panes)) pane.link = null;
+}
+
+// The view shows the same entry at the top: a pane that is shown before and
+// after stays where it is, and a pane that is shown again starts at the entry
+// that was at the top
+$("#views").addEventListener("change", (event) => {
+  const view = event.target.value;
+  if (!VIEWS.includes(view) || view === state.view) return;
+  const before = panes[state.view === "both" ? (view === "both" ? state.lastPane : view) : state.view];
+  const after = view === "both" ? before : panes[view];
+  const anchor = captureAnchor(before);
+  state.view = view;
+  saveJson(VIEW_KEY, view);
+  renderView();
+  if (after === before) {
+    restoreAnchor(after, anchor);
+  } else {
+    const el = anchor.origin && counterpart(after, anchor.origin);
+    setScroll(after, el ? el.offsetTop + (el.dataset.origin === anchor.origin ? anchor.offset : 0) : 0);
+  }
+  handled(after);
+  state.lastPane = after === panes.original ? "original" : "preview";
+  if (linked()) align(after, panes[other(state.lastPane)]);
+});
+renderView();
+
 /* Linked scrolling */
 
 // Map from the content of a pane to the content of the other pane, as points
@@ -1630,7 +1646,7 @@ for (const name of ["original", "preview"]) {
     const previous = pane.last;
     pane.last = view(pane);
     state.lastPane = name;
-    if (state.linkScroll) follow(pane, panes[other(name)], previous);
+    if (linked()) follow(pane, panes[other(name)], previous);
   }, { passive: true });
   pane.el.addEventListener("click", (event) => {
     const fold = event.target.closest(".fold");
@@ -1683,7 +1699,7 @@ function select(origin, fromName) {
   const to = panes[other(fromName)];
   const el = from.byOrigin.get(origin);
   const target = to.byOrigin.get(origin);
-  if (el && target) setView(to, alignedView(from, to, [el, target], view(from)));
+  if (el && target && state.view === "both") setView(to, alignedView(from, to, [el, target], view(from)));
   handled(from);
 }
 
@@ -1843,24 +1859,30 @@ function showMatch() {
 // Select an entry and show it in both panes at the same height. It is shown
 // in the original, which has all entries, and the preview follows.
 function revealEntry(origin) {
-  const from = panes.original;
-  const to = panes.preview;
+  // The original, which has all entries, or the preview if only it is shown
+  const name = state.view === "preview" ? "preview" : "original";
+  const from = panes[name];
+  const to = panes[other(name)];
   // A folded entry is unfolded, e.g., a match while all entries are shown
   if (!search.filter && !from.byOrigin.has(origin) && from.allByOrigin.has(origin)) {
     state.unfolded.add(origin);
     render();
   }
-  const el = from.byOrigin.get(origin);
+  // A removed entry is not in the preview, so its next entry is shown
+  const el = counterpart(from, origin);
   if (!el) return;
   state.selected = origin;
-  state.lastPane = "original";
+  state.lastPane = name;
   for (const pane of Object.values(panes)) {
     pane.all.forEach((entry) => entry.classList.toggle("selected", entry.dataset.origin === origin));
   }
   setView(from, Math.min(Math.max(0, contentTop(from, el) - from.el.clientHeight * 0.2), maxView(from)));
+  // Side by side, the other pane shows it at the same height
   const target = to.byOrigin.get(origin);
-  if (target) setView(to, alignedView(from, to, [el, target], view(from)));
-  else if (state.linkScroll) align(from, to);
+  if (state.view === "both") {
+    if (target && el.dataset.origin === origin) setView(to, alignedView(from, to, [el, target], view(from)));
+    else if (state.linkScroll) align(from, to);
+  }
   handled(from);
   handled(to);
 }
